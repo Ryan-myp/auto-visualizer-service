@@ -44,6 +44,12 @@ type Tracer struct {
 	captureValues bool
 	filters       []TraceFilter
 	handlers      []TraceHandler
+	
+	// 熔断机制
+	errorCount    int64         // 错误计数
+	lastErrorTime time.Time     // 最后错误时间
+	circuitOpen   bool          // 熔断器是否打开
+	circuitMu     sync.RWMutex  // 熔断器锁
 }
 
 // TraceFilter 追踪过滤器
@@ -184,7 +190,20 @@ func (t *Tracer) Trace(methodName string, fn interface{}) interface{} {
 
 // StartTrace 开始追踪
 func (t *Tracer) StartTrace(methodName string, input []interface{}) *MethodTrace {
+	// 添加 panic 恢复，确保追踪失败不影响业务
+	defer func() {
+		if r := recover(); r != nil {
+			// 记录错误并可能触发熔断
+			t.recordError()
+		}
+	}()
+
 	if !t.enabled {
+		return nil
+	}
+
+	// 检查熔断器状态
+	if t.isCircuitOpen() {
 		return nil
 	}
 
@@ -218,76 +237,136 @@ func (t *Tracer) StartTrace(methodName string, input []interface{}) *MethodTrace
 		PackageName: packageName,
 		FileName:    file,
 		LineNumber:  line,
-		Input:       input,
+		Input:       safeSerializeInput(input),  // 安全序列化
 		StartTime:   time.Now(),
 		Goroutine:   int(goroutineID),
 		Status:      "running",
 		Metadata:    make(map[string]interface{}),
 	}
 
-	// 捕获调用栈
+	// 捕获调用栈（带超时保护）
 	if t.captureStack {
-		trace.CallStack = captureCallStack(10)
+		trace.CallStack = safeCaptureCallStack(10)
 	}
 
-	// 保存追踪
-	t.mu.Lock()
-	t.traces[traceID] = trace
-	t.activeTraces[goroutineID] = trace
-	t.mu.Unlock()
+	// 保存追踪（使用超时保护）
+	done := make(chan bool, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// 静默处理
+			}
+			done <- true
+		}()
+		
+		t.mu.Lock()
+		t.traces[traceID] = trace
+		t.activeTraces[goroutineID] = trace
+		t.mu.Unlock()
 
-	// 如果有父追踪，添加为子节点
-	if parent != nil {
-		parent.Children = append(parent.Children, trace)
+		// 如果有父追踪，添加为子节点
+		if parent != nil {
+			parent.Children = append(parent.Children, trace)
+		}
+	}()
+
+	// 超时保护：最多等待 10ms
+	select {
+	case <-done:
+		// 成功
+	case <-time.After(10 * time.Millisecond):
+		// 超时，但不影响业务
+		return nil
 	}
-
-	log.Printf("🔍 [Tracer] 开始追踪: %s (ID: %s)", methodName, traceID)
 
 	return trace
 }
 
 // EndTrace 结束追踪
 func (t *Tracer) EndTrace(traceID string, output []interface{}, err error) {
+	// 添加 panic 恢复
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理 panic
+			_ = r
+		}
+	}()
+
 	if !t.enabled || traceID == "" {
 		return
 	}
 
-	t.mu.Lock()
-	trace, exists := t.traces[traceID]
-	if !exists {
-		t.mu.Unlock()
-		return
-	}
+	// 使用超时保护的异步处理
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// 静默处理
+			}
+		}()
 
-	trace.EndTime = time.Now()
-	trace.Duration = trace.EndTime.Sub(trace.StartTime)
-	trace.Output = output
+		// 超时控制
+		done := make(chan bool, 1)
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// 静默处理
+				}
+			}()
 
-	if err != nil {
-		trace.Error = err.Error()
-		trace.Status = "error"
-	} else {
-		trace.Status = "success"
-	}
+			t.mu.Lock()
+			trace, exists := t.traces[traceID]
+			if !exists {
+				t.mu.Unlock()
+				done <- true
+				return
+			}
 
-	// 恢复父追踪为当前活动追踪
-	goroutineID := getGoroutineID()
-	if trace.ParentID != "" {
-		if parent, ok := t.traces[trace.ParentID]; ok {
-			t.activeTraces[goroutineID] = parent
+			trace.EndTime = time.Now()
+			trace.Duration = trace.EndTime.Sub(trace.StartTime)
+			trace.Output = safeSerializeInput(output)  // 安全序列化
+
+			if err != nil {
+				trace.Error = err.Error()
+				trace.Status = "error"
+			} else {
+				trace.Status = "success"
+			}
+
+			// 恢复父追踪为当前活动追踪
+			goroutineID := getGoroutineID()
+			if trace.ParentID != "" {
+				if parent, ok := t.traces[trace.ParentID]; ok {
+					t.activeTraces[goroutineID] = parent
+				}
+			} else {
+				delete(t.activeTraces, goroutineID)
+			}
+
+			t.mu.Unlock()
+
+			// 调用处理器（异步，不阻塞）
+			for _, handler := range t.handlers {
+				go func(h TraceHandler, tr *MethodTrace) {
+					defer func() {
+						if r := recover(); r != nil {
+							// 静默处理
+						}
+					}()
+					h(tr)
+				}(handler, trace)
+			}
+
+			done <- true
+		}()
+
+		// 超时保护：最多等待 5ms
+		select {
+		case <-done:
+			// 成功
+		case <-time.After(5 * time.Millisecond):
+			// 超时，放弃处理
 		}
-	} else {
-		delete(t.activeTraces, goroutineID)
-	}
-
-	t.mu.Unlock()
-
-	log.Printf("✅ [Tracer] 完成追踪: %s (耗时: %v)", trace.MethodName, trace.Duration)
-
-	// 调用处理器
-	for _, handler := range t.handlers {
-		go handler(trace)
-	}
+	}()
 }
 
 // GetTrace 获取追踪信息
@@ -401,6 +480,83 @@ func captureCallStack(maxDepth int) []string {
 	return stack
 }
 
+// safeCaptureCallStack 安全捕获调用栈（带超时和 panic 保护）
+func safeCaptureCallStack(maxDepth int) []string {
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理 panic
+		}
+	}()
+
+	done := make(chan []string, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- []string{}
+			}
+		}()
+		done <- captureCallStack(maxDepth)
+	}()
+
+	select {
+	case stack := <-done:
+		return stack
+	case <-time.After(5 * time.Millisecond):
+		return []string{"<timeout>"}
+	}
+}
+
+// safeSerializeInput 安全序列化输入（防止 panic）
+func safeSerializeInput(input []interface{}) []interface{} {
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理 panic
+		}
+	}()
+
+	if input == nil {
+		return nil
+	}
+
+	result := make([]interface{}, 0, len(input))
+	for _, item := range input {
+		serialized := safeSerializeValue(item)
+		result = append(result, serialized)
+	}
+	return result
+}
+
+// safeSerializeValue 安全序列化单个值
+func safeSerializeValue(v interface{}) interface{} {
+	defer func() {
+		if r := recover(); r != nil {
+			// 返回类型信息而不是值
+		}
+	}()
+
+	if v == nil {
+		return nil
+	}
+
+	// 限制序列化的大小，防止大对象
+	done := make(chan interface{}, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- fmt.Sprintf("<error: %v>", r)
+			}
+		}()
+		done <- SerializeValue(v)
+	}()
+
+	select {
+	case result := <-done:
+		return result
+	case <-time.After(2 * time.Millisecond):
+		return fmt.Sprintf("<timeout: %T>", v)
+	}
+}
+
 // reflectValuesToInterfaces 将reflect.Value转换为interface{}
 func reflectValuesToInterfaces(values []reflect.Value) []interface{} {
 	result := make([]interface{}, len(values))
@@ -414,8 +570,14 @@ func reflectValuesToInterfaces(values []reflect.Value) []interface{} {
 	return result
 }
 
-// SerializeValue 序列化值（处理复杂类型）
+// SerializeValue 序列化值（处理复杂类型，带大小限制）
 func SerializeValue(v interface{}) interface{} {
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理 panic
+		}
+	}()
+
 	if v == nil {
 		return nil
 	}
@@ -428,22 +590,50 @@ func SerializeValue(v interface{}) interface{} {
 		}
 		return SerializeValue(val.Elem().Interface())
 	case reflect.Struct:
-		// 尝试JSON序列化
+		// 尝试JSON序列化，限制大小
 		if data, err := json.Marshal(v); err == nil {
+			// 限制最大 1KB
+			if len(data) > 1024 {
+				return fmt.Sprintf("<large struct: %T, size: %d bytes>", v, len(data))
+			}
 			var result map[string]interface{}
 			if err := json.Unmarshal(data, &result); err == nil {
 				return result
 			}
 		}
-		return fmt.Sprintf("%+v", v)
+		// 如果序列化失败，返回简化的字符串
+		str := fmt.Sprintf("%+v", v)
+		if len(str) > 200 {
+			return str[:200] + "..."
+		}
+		return str
 	case reflect.Map, reflect.Slice, reflect.Array:
+		// 检查大小
+		if val.Len() > 100 {
+			return fmt.Sprintf("<%s: length=%d, type=%T>", val.Kind(), val.Len(), v)
+		}
+		
 		if data, err := json.Marshal(v); err == nil {
+			// 限制最大 1KB
+			if len(data) > 1024 {
+				return fmt.Sprintf("<large %s: %T, size: %d bytes>", val.Kind(), v, len(data))
+			}
 			var result interface{}
 			if err := json.Unmarshal(data, &result); err == nil {
 				return result
 			}
 		}
-		return fmt.Sprintf("%+v", v)
+		str := fmt.Sprintf("%+v", v)
+		if len(str) > 200 {
+			return str[:200] + "..."
+		}
+		return str
+	case reflect.String:
+		str := val.String()
+		if len(str) > 500 {
+			return str[:500] + "..."
+		}
+		return str
 	default:
 		return v
 	}
@@ -468,5 +658,70 @@ func (t *Tracer) IsEnabled() bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.enabled
+}
+
+// ============ 熔断机制 ============
+
+// recordError 记录错误（用于熔断）
+func (t *Tracer) recordError() {
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理
+		}
+	}()
+
+	t.circuitMu.Lock()
+	defer t.circuitMu.Unlock()
+
+	t.errorCount++
+	t.lastErrorTime = time.Now()
+
+	// 如果在 10 秒内错误超过 100 次，打开熔断器
+	if t.errorCount > 100 {
+		t.circuitOpen = true
+		// 10 秒后自动尝试恢复
+		go func() {
+			time.Sleep(10 * time.Second)
+			t.tryResetCircuit()
+		}()
+	}
+}
+
+// isCircuitOpen 检查熔断器是否打开
+func (t *Tracer) isCircuitOpen() bool {
+	t.circuitMu.RLock()
+	defer t.circuitMu.RUnlock()
+	return t.circuitOpen
+}
+
+// tryResetCircuit 尝试重置熔断器
+func (t *Tracer) tryResetCircuit() {
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理
+		}
+	}()
+
+	t.circuitMu.Lock()
+	defer t.circuitMu.Unlock()
+
+	// 如果距离最后一次错误超过 10 秒，重置熔断器
+	if time.Since(t.lastErrorTime) > 10*time.Second {
+		t.circuitOpen = false
+		t.errorCount = 0
+	}
+}
+
+// GetCircuitStatus 获取熔断器状态（用于监控）
+func (t *Tracer) GetCircuitStatus() map[string]interface{} {
+	t.circuitMu.RLock()
+	defer t.circuitMu.RUnlock()
+
+	return map[string]interface{}{
+		"circuit_open":     t.circuitOpen,
+		"error_count":      t.errorCount,
+		"last_error_time":  t.lastErrorTime,
+		"enabled":          t.enabled,
+	}
 }
 

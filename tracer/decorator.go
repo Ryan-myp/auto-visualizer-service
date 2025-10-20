@@ -47,10 +47,30 @@ func createProxy(obj interface{}) interface{} {
 //       return "result", nil
 //   }
 func Auto(methodName string, args ...interface{}) func(...interface{}) {
+	// 添加 panic 保护
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理，不影响业务
+		}
+	}()
+
 	tracer := GetTracer()
+	if tracer == nil {
+		return func(...interface{}) {} // 返回空函数
+	}
+
 	trace := tracer.StartTrace(methodName, args)
+	if trace == nil {
+		return func(...interface{}) {} // 返回空函数
+	}
 
 	return func(results ...interface{}) {
+		defer func() {
+			if r := recover(); r != nil {
+				// 静默处理
+			}
+		}()
+
 		var err error
 		if len(results) > 0 {
 			if e, ok := results[len(results)-1].(error); ok {
@@ -112,10 +132,29 @@ func Begin(methodName string, args ...interface{}) func(...interface{}) {
 // 使用示例:
 //   defer tracer.Measure("MyMethod")()
 func Measure(methodName string) func() {
+	// 添加 panic 保护
+	defer func() {
+		if r := recover(); r != nil {
+			// 静默处理
+		}
+	}()
+
 	tracer := GetTracer()
+	if tracer == nil {
+		return func() {} // 返回空函数
+	}
+
 	trace := tracer.StartTrace(methodName, nil)
+	if trace == nil {
+		return func() {} // 返回空函数
+	}
 
 	return func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// 静默处理
+			}
+		}()
 		tracer.EndTrace(trace.TraceID, nil, nil)
 	}
 }
