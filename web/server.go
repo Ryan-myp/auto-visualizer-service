@@ -68,7 +68,7 @@ func (s *Server) setupRoutes() {
 
 	// 可视化页面路由
 	s.engine.GET("/trace/:id", s.handleTraceVisualization)
-	
+
 	// API路由
 	api := s.engine.Group("/api")
 	{
