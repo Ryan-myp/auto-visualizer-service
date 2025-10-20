@@ -261,12 +261,12 @@ func (t *Tracer) StartTrace(methodName string, input []interface{}) *MethodTrace
 		t.mu.Lock()
 		t.traces[traceID] = trace
 		t.activeTraces[goroutineID] = trace
-		t.mu.Unlock()
-
-		// 如果有父追踪，添加为子节点
+		
+		// 如果有父追踪，添加为子节点（在锁内执行，避免并发问题）
 		if parent != nil {
 			parent.Children = append(parent.Children, trace)
 		}
+		t.mu.Unlock()
 	}()
 
 	// 超时保护：最多等待 10ms

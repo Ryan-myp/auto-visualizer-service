@@ -408,8 +408,8 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         function renderNode(node, level) {
             if (!node) return '';
             
-            const hasChildren = node.Children && node.Children.length > 0;
-            const nodeId = 'node-' + (node.TraceID || Math.random().toString(36).substr(2, 9));
+            const hasChildren = node.children && node.children.length > 0;
+            const nodeId = 'node-' + (node.trace_id || Math.random().toString(36).substr(2, 9));
             
             let html = '<div class="tree-node">';
             html += '<div class="node-card">';
@@ -422,19 +422,19 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
                 html += '<span class="level-indicator"></span>';
             }
             
-            html += '<span class="node-icon">' + getStatusIcon(node.Status) + '</span>';
-            html += '<span class="node-method">' + escapeHtml(node.MethodName || '未知方法') + '</span>';
-            html += '<span class="node-duration">' + formatDuration(node.Duration || 0) + '</span>';
+            html += '<span class="node-icon">' + getStatusIcon(node.status) + '</span>';
+            html += '<span class="node-method">' + escapeHtml(node.method_name || '未知方法') + '</span>';
+            html += '<span class="node-duration">' + formatDuration(node.duration || 0) + '</span>';
             html += '</div>';
             
             // 元数据
             html += '<div class="node-meta">';
-            html += '<span><strong>Goroutine:</strong> #' + (node.Goroutine || 0) + '</span>';
+            html += '<span><strong>Goroutine:</strong> #' + (node.goroutine || 0) + '</span>';
             if (hasChildren) {
-                html += '<span><strong>子调用:</strong> ' + node.Children.length + ' 个</span>';
+                html += '<span><strong>子调用:</strong> ' + node.children.length + ' 个</span>';
             }
-            if (node.StartTime) {
-                html += '<span><strong>开始:</strong> ' + formatTime(node.StartTime) + '</span>';
+            if (node.start_time) {
+                html += '<span><strong>开始:</strong> ' + formatTime(node.start_time) + '</span>';
             }
             html += '</div>';
             
@@ -442,7 +442,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             html += '<div class="node-actions">';
             html += '<button class="node-btn" onclick="toggleParams(\'' + nodeId + '\')">查看参数</button>';
             if (hasChildren) {
-                html += '<button class="node-btn secondary" onclick="toggleChildren(\'' + nodeId + '\')">展开子调用 (' + node.Children.length + ')</button>';
+                html += '<button class="node-btn secondary" onclick="toggleChildren(\'' + nodeId + '\')">展开子调用 (' + node.children.length + ')</button>';
             }
             html += '</div>';
             
@@ -452,20 +452,20 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             // 输入参数
             html += '<div class="param-section">';
             html += '<div class="param-label">📥 输入参数</div>';
-            html += '<div class="param-content">' + formatParam(node.Input) + '</div>';
+            html += '<div class="param-content">' + formatParam(node.input) + '</div>';
             html += '</div>';
             
             // 返回值
             html += '<div class="param-section">';
             html += '<div class="param-label">📤 返回值</div>';
-            html += '<div class="param-content">' + formatParam(node.Output) + '</div>';
+            html += '<div class="param-content">' + formatParam(node.output) + '</div>';
             html += '</div>';
             
             // 错误信息
-            if (node.Error) {
+            if (node.error) {
                 html += '<div class="param-section">';
                 html += '<div class="param-label">❌ 错误信息</div>';
-                html += '<div class="param-content" style="background: #f8d7da; color: #721c24;">' + escapeHtml(node.Error) + '</div>';
+                html += '<div class="param-content" style="background: #f8d7da; color: #721c24;">' + escapeHtml(node.error) + '</div>';
                 html += '</div>';
             }
             
@@ -476,7 +476,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             // 子节点
             if (hasChildren) {
                 html += '<div class="node-children" id="children-' + nodeId + '">';
-                node.Children.forEach(child => {
+                node.children.forEach(child => {
                     html += renderNode(child, level + 1);
                 });
                 html += '</div>';
