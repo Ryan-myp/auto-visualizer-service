@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/shopee/auto-visualizer/config"
-	"github.com/shopee/auto-visualizer/interceptor"
-	"github.com/shopee/auto-visualizer/web"
+	"github.com/Ryan-myp/auto-visualizer-service/config"
+	"github.com/Ryan-myp/auto-visualizer-service/interceptor"
+	"github.com/Ryan-myp/auto-visualizer-service/web"
 )
 
 // 全局可视化器实例

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/shopee/auto-visualizer/config"
-	"github.com/shopee/auto-visualizer/interceptor"
-	"github.com/shopee/auto-visualizer/storage"
+	"github.com/Ryan-myp/auto-visualizer-service/config"
+	"github.com/Ryan-myp/auto-visualizer-service/interceptor"
+	"github.com/Ryan-myp/auto-visualizer-service/storage"
 )
 
 // Server Web服务器
@@ -171,10 +171,10 @@ func (s *Server) handleIndex(c *gin.Context) {
                 <h3>🚀 引入服务</h3>
                 <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
 # 在你的服务的go.mod中添加
-require github.com/shopee/auto-visualizer v1.0.0
+require github.com/Ryan-myp/auto-visualizer-service v1.0.0
 
 # 在main.go中导入
-import _ "github.com/shopee/auto-visualizer"
+import _ "github.com/Ryan-myp/auto-visualizer-service"
 
 # 设置环境变量启用
 export ENABLE_AUTO_VISUALIZER=true

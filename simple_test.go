@@ -477,10 +477,10 @@ func (av *AutoVisualizer) handleIndex(w http.ResponseWriter, r *http.Request) {
                 <h3>🚀 引入独立服务</h3>
                 <pre style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
 # 1. 在你的服务的go.mod中添加
-require github.com/shopee/auto-visualizer v1.0.0
+require github.com/Ryan-myp/auto-visualizer-service v1.0.0
 
 # 2. 在main.go中导入
-import _ "github.com/shopee/auto-visualizer"
+import _ "github.com/Ryan-myp/auto-visualizer-service"
 
 # 3. 设置环境变量启用
 export ENABLE_AUTO_VISUALIZER=true

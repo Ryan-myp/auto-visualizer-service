@@ -20,7 +20,7 @@
 
 ```go
 require (
-    github.com/shopee/auto-visualizer v1.0.0
+    github.com/Ryan-myp/auto-visualizer-service v1.0.0
 )
 ```
 
@@ -30,7 +30,7 @@ require (
 
 ```go
 import (
-    _ "github.com/shopee/auto-visualizer" // 自动启动插件
+    _ "github.com/Ryan-myp/auto-visualizer-service" // 自动启动插件
 )
 
 func main() {
@@ -64,7 +64,7 @@ go run main.go
 package main
 
 import (
-    _ "github.com/shopee/auto-visualizer" // 导入插件
+    _ "github.com/Ryan-myp/auto-visualizer-service" // 导入插件
 )
 
 // 你的业务方法 - 会被自动拦截
@@ -88,8 +88,8 @@ func main() {
 package main
 
 import (
-    "github.com/shopee/auto-visualizer/config"
-    _ "github.com/shopee/auto-visualizer" // 自动启动
+    "github.com/Ryan-myp/auto-visualizer-service/config"
+    _ "github.com/Ryan-myp/auto-visualizer-service" // 自动启动
 )
 
 func init() {
@@ -119,7 +119,7 @@ func init() {
 ### 代码配置
 
 ```go
-import "github.com/shopee/auto-visualizer/config"
+import "github.com/Ryan-myp/auto-visualizer-service/config"
 
 // 设置服务名称
 config.SetServiceName("AdMgmt")
@@ -216,7 +216,7 @@ GET /health
 
 ```bash
 # 克隆项目
-git clone https://github.com/shopee/auto-visualizer.git
+git clone https://github.com/Ryan-myp/auto-visualizer-service.git
 cd auto-visualizer
 
 # 安装依赖

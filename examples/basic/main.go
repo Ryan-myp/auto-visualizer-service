@@ -6,8 +6,8 @@ import (
 	"time"
 
 	// 导入auto-visualizer包 - 自动启动插件
-	_ "github.com/shopee/auto-visualizer"
-	autovisualizer "github.com/shopee/auto-visualizer"
+	_ "github.com/Ryan-myp/auto-visualizer-service"
+	autovisualizer "github.com/Ryan-myp/auto-visualizer-service"
 )
 
 // 模拟业务服务

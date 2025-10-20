@@ -6,8 +6,8 @@ import (
 	"time"
 
 	// 导入auto-visualizer包 - 自动启动插件
-	_ "github.com/shopee/auto-visualizer"
-	"github.com/shopee/auto-visualizer/config"
+	_ "github.com/Ryan-myp/auto-visualizer-service"
+	"github.com/Ryan-myp/auto-visualizer-service/config"
 )
 
 // 模拟AdMgmt业务方法

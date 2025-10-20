@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shopee/auto-visualizer/config"
-	"github.com/shopee/auto-visualizer/storage"
+	"github.com/Ryan-myp/auto-visualizer-service/config"
+	"github.com/Ryan-myp/auto-visualizer-service/storage"
 )
 
 // Manager 拦截器管理器

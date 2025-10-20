@@ -1,4 +1,4 @@
-module github.com/shopee/auto-visualizer
+module github.com/Ryan-myp/auto-visualizer-service
 
 go 1.21
 
