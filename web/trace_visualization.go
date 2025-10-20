@@ -43,7 +43,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         }
         
         .container { 
-            max-width: 1600px; 
+            max-width: 1400px; 
             margin: 0 auto; 
         }
         
@@ -60,21 +60,21 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         }
         
         .btn-back {
-            padding: 10px 20px;
+            padding: 12px 24px;
             background: #667eea;
             color: white;
             text-decoration: none;
             border-radius: 8px;
             font-weight: 600;
+            font-size: 15px;
             transition: all 0.3s;
         }
         
         .btn-back:hover { 
             background: #5568d3;
-            transform: translateY(-2px);
         }
         
-        /* 头部信息卡片 */
+        /* 头部信息 */
         .header-card {
             background: white;
             padding: 30px;
@@ -84,20 +84,19 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         }
         
         .method-title {
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 700;
             color: #2c3e50;
             margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
         }
         
         .status-badge {
-            padding: 6px 16px;
+            display: inline-block;
+            padding: 8px 20px;
             border-radius: 20px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
+            margin-left: 15px;
         }
         
         .status-success { 
@@ -112,9 +111,9 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         
         .meta-row {
             display: flex;
-            gap: 30px;
+            gap: 40px;
             flex-wrap: wrap;
-            font-size: 14px;
+            font-size: 15px;
             color: #666;
         }
         
@@ -126,149 +125,150 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         /* 工具栏 */
         .toolbar {
             background: white;
-            padding: 15px 20px;
+            padding: 20px;
             border-radius: 12px;
             margin-bottom: 20px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             display: flex;
-            gap: 12px;
+            gap: 15px;
             flex-wrap: wrap;
         }
         
         .toolbar-btn {
-            padding: 8px 16px;
+            padding: 10px 20px;
             background: #667eea;
             color: white;
             border: none;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            font-size: 13px;
+            font-size: 14px;
             transition: all 0.3s;
         }
         
         .toolbar-btn:hover {
             background: #5568d3;
-        }
-        
-        .toolbar-btn.secondary {
-            background: #6c757d;
-        }
-        
-        .toolbar-btn.secondary:hover {
-            background: #5a6268;
+            transform: translateY(-2px);
         }
         
         /* 调用树容器 */
         .tree-container {
             background: white;
-            padding: 25px;
+            padding: 30px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         
         .tree-title {
-            font-size: 20px;
+            font-size: 24px;
             font-weight: 700;
             color: #2c3e50;
-            margin-bottom: 20px;
-            padding-bottom: 12px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
             border-bottom: 2px solid #e9ecef;
         }
         
-        /* 调用树节点 */
+        /* 树节点 - 列表式布局 */
         .tree-node {
-            margin-bottom: 8px;
+            margin-bottom: 15px;
         }
         
         .node-card {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            border-radius: 8px;
-            padding: 16px;
+            background: #ffffff;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
             transition: all 0.3s;
         }
         
         .node-card:hover {
-            background: #e9ecef;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-color: #667eea;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
         }
         
         .node-header {
             display: flex;
             align-items: center;
-            gap: 12px;
-            margin-bottom: 8px;
+            gap: 15px;
+            margin-bottom: 12px;
         }
         
         .node-icon {
-            font-size: 20px;
+            font-size: 28px;
             flex-shrink: 0;
         }
         
         .node-method {
-            font-size: 16px;
+            font-size: 20px;
             font-weight: 700;
             color: #2c3e50;
             flex: 1;
         }
         
         .node-duration {
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 18px;
+            font-weight: 700;
             color: #667eea;
-            padding: 4px 12px;
-            background: white;
-            border-radius: 12px;
+            padding: 6px 16px;
+            background: #f0f3ff;
+            border-radius: 20px;
         }
         
         .node-meta {
             display: flex;
-            gap: 20px;
+            gap: 25px;
             flex-wrap: wrap;
-            font-size: 13px;
+            font-size: 14px;
             color: #666;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
+            padding-left: 43px;
+        }
+        
+        .node-meta span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
         
         .node-actions {
             display: flex;
-            gap: 8px;
-            margin-top: 10px;
+            gap: 10px;
+            padding-left: 43px;
         }
         
         .node-btn {
-            padding: 6px 14px;
+            padding: 8px 18px;
             background: #667eea;
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 600;
             transition: all 0.3s;
         }
         
         .node-btn:hover {
             background: #5568d3;
+            transform: translateY(-1px);
         }
         
-        .node-btn.collapse {
+        .node-btn.secondary {
             background: #6c757d;
         }
         
-        .node-btn.collapse:hover {
+        .node-btn.secondary:hover {
             background: #5a6268;
         }
         
-        /* 参数展示 */
+        /* 参数面板 */
         .params-panel {
-            margin-top: 12px;
-            display: none;
-            background: white;
+            margin-top: 15px;
+            padding: 20px;
+            background: #f8f9fa;
             border-radius: 8px;
-            padding: 15px;
-            border: 1px solid #e9ecef;
+            display: none;
+            margin-left: 43px;
         }
         
         .params-panel.show {
@@ -276,7 +276,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         }
         
         .param-section {
-            margin-bottom: 12px;
+            margin-bottom: 15px;
         }
         
         .param-section:last-child {
@@ -286,20 +286,20 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         .param-label {
             font-weight: 700;
             color: #667eea;
-            margin-bottom: 6px;
-            font-size: 13px;
+            margin-bottom: 8px;
+            font-size: 14px;
         }
         
         .param-content {
             background: #2d2d2d;
             color: #f8f8f2;
-            padding: 12px;
+            padding: 15px;
             border-radius: 6px;
             overflow-x: auto;
             font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-            font-size: 13px;
+            font-size: 14px;
             line-height: 1.6;
-            max-height: 300px;
+            max-height: 400px;
             overflow-y: auto;
         }
         
@@ -308,12 +308,12 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             font-style: italic;
         }
         
-        /* 子节点容器 */
+        /* 子节点容器 - 缩进显示 */
         .node-children {
-            margin-left: 30px;
-            margin-top: 8px;
+            margin-top: 15px;
+            margin-left: 40px;
             padding-left: 20px;
-            border-left: 2px solid #dee2e6;
+            border-left: 3px solid #dee2e6;
             display: none;
         }
         
@@ -321,16 +321,26 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             display: block;
         }
         
+        /* 层级指示器 */
+        .level-indicator {
+            display: inline-block;
+            width: 30px;
+            height: 3px;
+            background: #dee2e6;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+        
         /* 响应式 */
         @media (max-width: 768px) {
             .node-children {
-                margin-left: 15px;
+                margin-left: 20px;
                 padding-left: 10px;
             }
             
-            .meta-row {
-                flex-direction: column;
-                gap: 10px;
+            .node-meta, .node-actions, .params-panel {
+                padding-left: 0;
+                margin-left: 0;
             }
         }
     </style>
@@ -346,8 +356,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         <!-- 头部信息 -->
         <div class="header-card">
             <div class="method-title">
-                <span>🔍</span>
-                <span>%s</span>
+                🔍 %s
                 <span class="status-badge status-%s">%s %s</span>
             </div>
             
@@ -369,15 +378,15 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         
         <!-- 工具栏 -->
         <div class="toolbar">
-            <button class="toolbar-btn" onclick="expandAll()">📂 展开全部</button>
-            <button class="toolbar-btn" onclick="collapseAll()">📁 折叠全部</button>
-            <button class="toolbar-btn" onclick="showAllParams()">👁️ 显示所有参数</button>
-            <button class="toolbar-btn secondary" onclick="hideAllParams()">🙈 隐藏所有参数</button>
+            <button class="toolbar-btn" onclick="expandAll()">📂 展开全部调用</button>
+            <button class="toolbar-btn" onclick="collapseAll()">📁 折叠全部调用</button>
+            <button class="toolbar-btn" onclick="showAllParams()">👁️ 显示全部参数</button>
+            <button class="toolbar-btn" onclick="hideAllParams()">🙈 隐藏全部参数</button>
         </div>
         
         <!-- 调用树 -->
         <div class="tree-container">
-            <div class="tree-title">🌲 完整调用链路</div>
+            <div class="tree-title">🌲 完整调用链路（列表视图）</div>
             <div id="callTree"></div>
         </div>
     </div>
@@ -390,7 +399,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         function renderTree() {
             const container = document.getElementById('callTree');
             if (!traceData) {
-                container.innerHTML = '<p style="color: #999;">无追踪数据</p>';
+                container.innerHTML = '<p style="color: #999; font-size: 16px;">无追踪数据</p>';
                 return;
             }
             container.innerHTML = renderNode(traceData, 0);
@@ -403,11 +412,17 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             const hasChildren = node.Children && node.Children.length > 0;
             const nodeId = 'node-' + (node.TraceID || Math.random().toString(36).substr(2, 9));
             
-            let html = '<div class="tree-node" style="margin-left: ' + (level * 0) + 'px;">';
+            let html = '<div class="tree-node">';
             html += '<div class="node-card">';
             
             // 节点头部
             html += '<div class="node-header">';
+            
+            // 层级指示器
+            for (let i = 0; i < level; i++) {
+                html += '<span class="level-indicator"></span>';
+            }
+            
             html += '<span class="node-icon">' + getStatusIcon(node.Status) + '</span>';
             html += '<span class="node-method">' + escapeHtml(node.MethodName || '未知方法') + '</span>';
             html += '<span class="node-duration">' + formatDuration(node.Duration || 0) + '</span>';
@@ -419,8 +434,8 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             if (hasChildren) {
                 html += '<span><strong>子调用:</strong> ' + node.Children.length + ' 个</span>';
             }
-            if (node.PackageName) {
-                html += '<span><strong>包:</strong> ' + escapeHtml(node.PackageName) + '</span>';
+            if (node.StartTime) {
+                html += '<span><strong>开始:</strong> ' + formatTime(node.StartTime) + '</span>';
             }
             html += '</div>';
             
@@ -428,7 +443,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             html += '<div class="node-actions">';
             html += '<button class="node-btn" onclick="toggleParams(\'' + nodeId + '\')">查看参数</button>';
             if (hasChildren) {
-                html += '<button class="node-btn collapse" onclick="toggleChildren(\'' + nodeId + '\')">展开 (' + node.Children.length + ')</button>';
+                html += '<button class="node-btn secondary" onclick="toggleChildren(\'' + nodeId + '\')">展开子调用 (' + node.Children.length + ')</button>';
             }
             html += '</div>';
             
@@ -476,30 +491,46 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         // 切换参数显示
         function toggleParams(nodeId) {
             const panel = document.getElementById('params-' + nodeId);
-            const btn = event.target;
+            const buttons = document.querySelectorAll('button[onclick*="' + nodeId + '"]');
             
             if (panel && panel.classList.contains('show')) {
                 panel.classList.remove('show');
-                btn.textContent = '查看参数';
+                buttons.forEach(btn => {
+                    if (btn.textContent.includes('隐藏')) {
+                        btn.textContent = '查看参数';
+                    }
+                });
             } else if (panel) {
                 panel.classList.add('show');
-                btn.textContent = '隐藏参数';
+                buttons.forEach(btn => {
+                    if (btn.textContent.includes('查看')) {
+                        btn.textContent = '隐藏参数';
+                    }
+                });
             }
         }
         
         // 切换子节点显示
         function toggleChildren(nodeId) {
             const children = document.getElementById('children-' + nodeId);
-            const btn = event.target;
+            const buttons = document.querySelectorAll('button[onclick*="' + nodeId + '"]');
             
             if (children && children.classList.contains('show')) {
                 children.classList.remove('show');
-                const count = children.querySelectorAll(':scope > .tree-node').length;
-                btn.textContent = '展开 (' + count + ')';
+                buttons.forEach(btn => {
+                    if (btn.textContent.includes('折叠')) {
+                        const count = children.querySelectorAll(':scope > .tree-node').length;
+                        btn.textContent = '展开子调用 (' + count + ')';
+                    }
+                });
             } else if (children) {
                 children.classList.add('show');
-                const count = children.querySelectorAll(':scope > .tree-node').length;
-                btn.textContent = '折叠 (' + count + ')';
+                buttons.forEach(btn => {
+                    if (btn.textContent.includes('展开')) {
+                        const count = children.querySelectorAll(':scope > .tree-node').length;
+                        btn.textContent = '折叠子调用 (' + count + ')';
+                    }
+                });
             }
         }
         
@@ -508,12 +539,12 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             document.querySelectorAll('.node-children').forEach(el => {
                 el.classList.add('show');
             });
-            document.querySelectorAll('.node-btn.collapse').forEach(btn => {
-                const nodeId = btn.onclick.toString().match(/'([^']+)'/)[1];
-                const children = document.getElementById('children-' + nodeId);
-                if (children) {
-                    const count = children.querySelectorAll(':scope > .tree-node').length;
-                    btn.textContent = '折叠 (' + count + ')';
+            document.querySelectorAll('.node-btn.secondary').forEach(btn => {
+                if (btn.textContent.includes('展开')) {
+                    const match = btn.textContent.match(/\\d+/);
+                    if (match) {
+                        btn.textContent = '折叠子调用 (' + match[0] + ')';
+                    }
                 }
             });
         }
@@ -523,12 +554,12 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             document.querySelectorAll('.node-children').forEach(el => {
                 el.classList.remove('show');
             });
-            document.querySelectorAll('.node-btn.collapse').forEach(btn => {
-                const nodeId = btn.onclick.toString().match(/'([^']+)'/)[1];
-                const children = document.getElementById('children-' + nodeId);
-                if (children) {
-                    const count = children.querySelectorAll(':scope > .tree-node').length;
-                    btn.textContent = '展开 (' + count + ')';
+            document.querySelectorAll('.node-btn.secondary').forEach(btn => {
+                if (btn.textContent.includes('折叠')) {
+                    const match = btn.textContent.match(/\\d+/);
+                    if (match) {
+                        btn.textContent = '展开子调用 (' + match[0] + ')';
+                    }
                 }
             });
         }
@@ -538,7 +569,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             document.querySelectorAll('.params-panel').forEach(el => {
                 el.classList.add('show');
             });
-            document.querySelectorAll('.node-btn:not(.collapse)').forEach(btn => {
+            document.querySelectorAll('.node-btn:not(.secondary)').forEach(btn => {
                 if (btn.textContent.includes('查看')) {
                     btn.textContent = '隐藏参数';
                 }
@@ -550,7 +581,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             document.querySelectorAll('.params-panel').forEach(el => {
                 el.classList.remove('show');
             });
-            document.querySelectorAll('.node-btn:not(.collapse)').forEach(btn => {
+            document.querySelectorAll('.node-btn:not(.secondary)').forEach(btn => {
                 if (btn.textContent.includes('隐藏')) {
                     btn.textContent = '查看参数';
                 }
@@ -583,6 +614,17 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             }
         }
         
+        // 格式化时间
+        function formatTime(timeStr) {
+            if (!timeStr) return '';
+            try {
+                const date = new Date(timeStr);
+                return date.toLocaleTimeString('zh-CN', { hour12: false });
+            } catch (e) {
+                return timeStr;
+            }
+        }
+        
         // 获取状态图标
         function getStatusIcon(status) {
             switch (status) {
@@ -607,7 +649,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
                 renderTree();
             } catch (e) {
                 console.error('渲染失败:', e);
-                document.getElementById('callTree').innerHTML = '<p style="color: #dc3545;">渲染失败: ' + e.message + '</p>';
+                document.getElementById('callTree').innerHTML = '<p style="color: #dc3545; font-size: 16px;">渲染失败: ' + e.message + '</p>';
             }
         };
     </script>
