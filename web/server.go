@@ -66,6 +66,9 @@ func (s *Server) setupRoutes() {
 	// 主页
 	s.engine.GET("/", s.handleIndex)
 
+	// 可视化页面路由
+	s.engine.GET("/trace/:id", s.handleTraceVisualization)
+	
 	// API路由
 	api := s.engine.Group("/api")
 	{
@@ -500,33 +503,33 @@ func (s *Server) handleGetInterceptors(c *gin.Context) {
 	// 从追踪器中获取实际被追踪的方法
 	t := tracer.GetTracer()
 	traces := t.GetAllTraces()
-	
+
 	// 统计每个方法的调用次数和状态
 	methodStats := make(map[string]map[string]interface{})
 	for _, trace := range traces {
 		if _, exists := methodStats[trace.MethodName]; !exists {
 			methodStats[trace.MethodName] = map[string]interface{}{
-				"name":          trace.MethodName,
-				"package":       trace.PackageName,
-				"call_count":    0,
-				"success_count": 0,
-				"error_count":   0,
+				"name":           trace.MethodName,
+				"package":        trace.PackageName,
+				"call_count":     0,
+				"success_count":  0,
+				"error_count":    0,
 				"total_duration": int64(0),
 			}
 		}
-		
+
 		stats := methodStats[trace.MethodName]
 		stats["call_count"] = stats["call_count"].(int) + 1
-		
+
 		if trace.Status == "success" {
 			stats["success_count"] = stats["success_count"].(int) + 1
 		} else if trace.Status == "error" {
 			stats["error_count"] = stats["error_count"].(int) + 1
 		}
-		
+
 		stats["total_duration"] = stats["total_duration"].(int64) + trace.Duration.Milliseconds()
 	}
-	
+
 	// 转换为数组并计算平均耗时
 	result := make([]map[string]interface{}, 0, len(methodStats))
 	for _, stats := range methodStats {
