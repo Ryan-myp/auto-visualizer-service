@@ -300,21 +300,27 @@ go run main.go
                 const response = await fetch('/api/interceptors');
                 const result = await response.json();
                 
-                if (result.success && result.methods) {
+                if (result.success && result.methods && Array.isArray(result.methods)) {
                     const methodFilter = document.getElementById('methodFilter');
-                    methodFilter.innerHTML = '<option value="">全部方法</option>';
-                    
-                    result.methods.forEach(methodInfo => {
-                        const option = document.createElement('option');
-                        option.value = methodInfo.name;
-                        option.textContent = methodInfo.name + ' (' + methodInfo.call_count + '次)';
-                        methodFilter.appendChild(option);
-                    });
-                    
-                    alert('✅ 已加载 ' + result.methods.length + ' 个追踪方法');
+                    if (methodFilter) {
+                        methodFilter.innerHTML = '<option value="">全部方法</option>';
+                        
+                        result.methods.forEach(methodInfo => {
+                            if (methodInfo && methodInfo.name) {
+                                const option = document.createElement('option');
+                                option.value = methodInfo.name;
+                                option.textContent = methodInfo.name + ' (' + (methodInfo.call_count || 0) + '次)';
+                                methodFilter.appendChild(option);
+                            }
+                        });
+                        
+                        console.log('✅ 已加载 ' + result.methods.length + ' 个追踪方法');
+                    }
+                } else {
+                    console.log('⚠️ 暂无追踪方法');
                 }
             } catch (error) {
-                alert('❌ 加载方法列表失败: ' + error.message);
+                console.error('❌ 加载方法列表失败:', error);
             }
         }
         

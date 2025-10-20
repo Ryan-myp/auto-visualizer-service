@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html"
 	"net/http"
-	"strings"
 
 	"github.com/Ryan-myp/auto-visualizer-service/tracer"
 	"github.com/gin-gonic/gin"
@@ -24,6 +23,9 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
 		return
 	}
 	
+	// 将追踪数据转换为 JSON
+	traceJSON, _ := json.Marshal(trace)
+	
 	htmlContent := fmt.Sprintf(`
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -33,6 +35,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
     <title>追踪详情 - %s</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
@@ -40,280 +43,361 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             padding: 20px;
             color: #333;
         }
-        .container { max-width: 1600px; margin: 0 auto; }
+        
+        .container { 
+            max-width: 1800px; 
+            margin: 0 auto; 
+        }
         
         /* 顶部导航 */
         .top-nav {
-            background: rgba(255,255,255,0.95);
-            padding: 15px 30px;
-            border-radius: 15px;
+            background: rgba(255,255,255,0.98);
+            padding: 20px 30px;
+            border-radius: 16px;
             margin-bottom: 20px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            backdrop-filter: blur(10px);
         }
+        
         .btn-back {
-            padding: 10px 20px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             text-decoration: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-weight: 600;
-            transition: transform 0.2s;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
         }
-        .btn-back:hover { transform: translateY(-2px); }
+        
+        .btn-back:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
         
         /* 头部卡片 */
         .header-card {
             background: white;
-            padding: 30px;
-            border-radius: 15px;
+            padding: 35px;
+            border-radius: 16px;
             margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
         }
+        
         .method-title {
-            font-size: 32px;
-            font-weight: 700;
-            color: #667eea;
-            margin-bottom: 15px;
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 15px;
         }
+        
         .status-badge {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 10px 20px;
+            border-radius: 25px;
             font-size: 14px;
-            font-weight: 600;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .status-success { background: #d4edda; color: #155724; }
-        .status-error { background: #f8d7da; color: #721c24; }
+        
+        .status-success { 
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724; 
+        }
+        
+        .status-error { 
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            color: #721c24; 
+        }
         
         .meta-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 25px;
         }
+        
         .meta-item {
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 12px;
+            border-left: 5px solid #667eea;
+            transition: all 0.3s;
         }
+        
+        .meta-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+        
         .meta-label {
-            font-size: 12px;
+            font-size: 13px;
             color: #666;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 5px;
-        }
-        .meta-value {
-            font-size: 18px;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
             font-weight: 600;
-            color: #333;
         }
         
-        /* 主内容区域 */
-        .content-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .card {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
-        .card-title {
+        .meta-value {
             font-size: 20px;
             font-weight: 700;
             color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
+        }
+        
+        /* 调用树 */
+        .call-tree-container {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        }
+        
+        .tree-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
             border-bottom: 3px solid #667eea;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
         }
         
-        /* 参数展示 */
-        .param-container {
-            background: #f8f9fa;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid #e9ecef;
-        }
-        .param-header {
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            padding: 12px 20px;
-            font-weight: 600;
-            font-size: 14px;
-        }
-        .param-content {
-            padding: 20px;
-        }
-        .param-content pre {
-            background: #2d2d2d;
-            color: #f8f8f2;
-            padding: 20px;
-            border-radius: 8px;
-            overflow-x: auto;
-            font-size: 14px;
-            line-height: 1.6;
-            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-        }
-        .param-empty {
-            color: #999;
-            font-style: italic;
-            text-align: center;
-            padding: 20px;
-        }
-        
-        /* JSON 语法高亮 */
-        .json-key { color: #e06c75; }
-        .json-string { color: #98c379; }
-        .json-number { color: #d19a66; }
-        .json-boolean { color: #56b6c2; }
-        .json-null { color: #c678dd; }
-        
-        /* 调用树 */
-        .call-tree {
-            margin-top: 10px;
-        }
         .tree-node {
-            margin-bottom: 10px;
+            margin-bottom: 12px;
             position: relative;
-        }
-        .tree-node-content {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            border-left: 4px solid #667eea;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-        .tree-node-content:hover {
-            background: #e9ecef;
-            transform: translateX(5px);
-        }
-        .tree-node-icon {
-            font-size: 20px;
-            margin-right: 12px;
-        }
-        .tree-node-method {
-            flex: 1;
-            font-weight: 600;
-            color: #333;
-            font-size: 15px;
-        }
-        .tree-node-duration {
-            padding: 4px 12px;
-            background: white;
-            border-radius: 15px;
-            font-size: 13px;
-            color: #667eea;
-            font-weight: 600;
-            margin-right: 10px;
-        }
-        .tree-node-children {
-            margin-left: 30px;
-            margin-top: 10px;
-            padding-left: 20px;
-            border-left: 2px dashed #ddd;
         }
         
-        /* 时间线 */
-        .timeline {
-            position: relative;
-            padding: 20px 0;
+        .tree-node-header {
+            display: flex;
+            align-items: flex-start;
+            padding: 18px;
+            background: linear-gradient(135deg, #f8f9fa, #ffffff);
+            border-radius: 12px;
+            border-left: 5px solid #667eea;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
         }
-        .timeline-item {
+        
+        .tree-node-header:hover {
+            background: linear-gradient(135deg, #e9ecef, #f8f9fa);
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+        }
+        
+        .tree-node-icon {
+            font-size: 24px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        
+        .tree-node-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .tree-node-method {
+            font-weight: 700;
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 10px;
+            word-break: break-word;
+        }
+        
+        .tree-node-meta {
             display: flex;
             gap: 20px;
-            margin-bottom: 20px;
-            position: relative;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
         }
-        .timeline-time {
-            min-width: 150px;
+        
+        .tree-node-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .tree-node-meta-item strong {
+            color: #667eea;
+            font-weight: 600;
+        }
+        
+        .tree-node-params {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-size: 13px;
+            display: none;
+        }
+        
+        .tree-node-params.show {
+            display: block;
+        }
+        
+        .param-section {
+            margin-bottom: 10px;
+        }
+        
+        .param-label {
             font-weight: 600;
             color: #667eea;
-            text-align: right;
-        }
-        .timeline-marker {
-            width: 16px;
-            height: 16px;
-            background: #667eea;
-            border-radius: 50%%;
-            border: 4px solid white;
-            box-shadow: 0 0 0 2px #667eea;
-            position: relative;
-            z-index: 1;
-        }
-        .timeline-content {
-            flex: 1;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 10px;
-        }
-        .timeline-title {
-            font-weight: 600;
-            color: #333;
             margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        .timeline-desc {
-            color: #666;
-            font-size: 14px;
+        
+        .param-value {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .tree-node-toggle {
+            padding: 6px 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+        
+        .tree-node-toggle:hover {
+            background: #5568d3;
+        }
+        
+        .tree-node-children {
+            margin-left: 40px;
+            margin-top: 12px;
+            padding-left: 20px;
+            border-left: 3px dashed #ddd;
+            display: none;
+        }
+        
+        .tree-node-children.show {
+            display: block;
+        }
+        
+        .collapse-btn {
+            padding: 4px 10px;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-left: 10px;
+        }
+        
+        .collapse-btn:hover {
+            background: #667eea;
+            color: white;
         }
         
         /* 性能指标 */
-        .metrics-grid {
+        .metrics-container {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
         }
+        
         .metric-card {
             background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
             color: white;
-            padding: 25px;
-            border-radius: 12px;
+            padding: 30px;
+            border-radius: 16px;
             text-align: center;
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
-        }
-        .metric-value {
-            font-size: 36px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-        .metric-label {
-            font-size: 14px;
-            opacity: 0.9;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s;
         }
         
-        /* 全宽卡片 */
-        .card-full {
-            grid-column: 1 / -1;
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.6);
+        }
+        
+        .metric-value {
+            font-size: 42px;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            opacity: 0.95;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        
+        /* 工具栏 */
+        .toolbar {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .toolbar-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .toolbar-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
         }
         
         /* 响应式 */
-        @media (max-width: 1024px) {
-            .content-grid {
+        @media (max-width: 768px) {
+            .meta-grid {
                 grid-template-columns: 1fr;
             }
-            .metrics-grid {
-                grid-template-columns: 1fr;
+            .tree-node-children {
+                margin-left: 20px;
             }
         }
     </style>
@@ -323,7 +407,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         <!-- 顶部导航 -->
         <div class="top-nav">
             <a href="/" class="btn-back">← 返回首页</a>
-            <div style="color: #667eea; font-weight: 600;">追踪ID: %s</div>
+            <div style="color: #667eea; font-weight: 600; font-size: 14px;">追踪ID: %s</div>
         </div>
         
         <!-- 头部信息 -->
@@ -338,78 +422,264 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             
             <div class="meta-grid">
                 <div class="meta-item">
-                    <div class="meta-label">包路径</div>
-                    <div class="meta-value" style="font-size: 14px;">%s</div>
+                    <div class="meta-label">📦 包路径</div>
+                    <div class="meta-value" style="font-size: 14px; word-break: break-all;">%s</div>
                 </div>
                 <div class="meta-item">
-                    <div class="meta-label">执行耗时</div>
+                    <div class="meta-label">⏱️ 执行耗时</div>
                     <div class="meta-value">%s</div>
                 </div>
                 <div class="meta-item">
-                    <div class="meta-label">Goroutine</div>
+                    <div class="meta-label">🔢 Goroutine</div>
                     <div class="meta-value">#%d</div>
                 </div>
                 <div class="meta-item">
-                    <div class="meta-label">开始时间</div>
+                    <div class="meta-label">🕐 开始时间</div>
                     <div class="meta-value" style="font-size: 14px;">%s</div>
                 </div>
                 <div class="meta-item">
-                    <div class="meta-label">结束时间</div>
+                    <div class="meta-label">🕑 结束时间</div>
                     <div class="meta-value" style="font-size: 14px;">%s</div>
                 </div>
                 <div class="meta-item">
-                    <div class="meta-label">子调用数</div>
+                    <div class="meta-label">🌲 子调用数</div>
                     <div class="meta-value">%d</div>
                 </div>
             </div>
         </div>
         
         <!-- 性能指标 -->
-        <div class="card" style="margin-bottom: 20px;">
-            <div class="card-title">📊 性能指标</div>
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-value">%s</div>
-                    <div class="metric-label">执行时间</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">%s</div>
-                    <div class="metric-label">状态</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value">%d</div>
-                    <div class="metric-label">子调用</div>
-                </div>
+        <div class="metrics-container">
+            <div class="metric-card">
+                <div class="metric-value">%s</div>
+                <div class="metric-label">执行时间</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">%s</div>
+                <div class="metric-label">状态</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-value">%d</div>
+                <div class="metric-label">子调用</div>
             </div>
         </div>
         
-        <!-- 参数和返回值 -->
-        <div class="content-grid">
-            <div class="card">
-                <div class="card-title">📥 输入参数</div>
-                <div class="param-container">
-                    <div class="param-header">Input Parameters</div>
-                    <div class="param-content">
-                        %s
-                    </div>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-title">📤 返回值</div>
-                <div class="param-container">
-                    <div class="param-header">Output Values</div>
-                    <div class="param-content">
-                        %s
-                    </div>
-                </div>
-                %s
-            </div>
+        <!-- 工具栏 -->
+        <div class="toolbar">
+            <button class="toolbar-btn" onclick="expandAll()">📂 展开全部</button>
+            <button class="toolbar-btn" onclick="collapseAll()">📁 折叠全部</button>
+            <button class="toolbar-btn" onclick="showAllParams()">👁️ 显示所有参数</button>
+            <button class="toolbar-btn" onclick="hideAllParams()">🙈 隐藏所有参数</button>
         </div>
         
         <!-- 调用树 -->
-        %s
+        <div class="call-tree-container">
+            <div class="tree-title">
+                <span>🌲</span>
+                <span>完整调用链路</span>
+            </div>
+            <div id="callTree"></div>
+        </div>
     </div>
+    
+    <script>
+        // 追踪数据
+        const traceData = %s;
+        
+        // 渲染调用树
+        function renderTree() {
+            const container = document.getElementById('callTree');
+            container.innerHTML = renderNode(traceData, 0);
+        }
+        
+        // 渲染单个节点
+        function renderNode(node, level) {
+            const hasChildren = node.Children && node.Children.length > 0;
+            const nodeId = 'node-' + node.TraceID;
+            
+            let html = '<div class="tree-node" style="margin-left: ' + (level * 30) + 'px;">';
+            
+            // 节点头部
+            html += '<div class="tree-node-header">';
+            html += '<span class="tree-node-icon">' + getStatusIcon(node.Status) + '</span>';
+            html += '<div class="tree-node-content">';
+            html += '<div class="tree-node-method">' + escapeHtml(node.MethodName) + '</div>';
+            
+            // 元数据
+            html += '<div class="tree-node-meta">';
+            html += '<div class="tree-node-meta-item"><strong>⏱️</strong> ' + formatDuration(node.Duration) + '</div>';
+            html += '<div class="tree-node-meta-item"><strong>🔢</strong> Goroutine #' + node.Goroutine + '</div>';
+            if (hasChildren) {
+                html += '<div class="tree-node-meta-item"><strong>🌲</strong> ' + node.Children.length + ' 个子调用</div>';
+            }
+            html += '</div>';
+            
+            // 参数区域（默认隐藏）
+            html += '<div class="tree-node-params" id="params-' + nodeId + '">';
+            
+            // 输入参数
+            html += '<div class="param-section">';
+            html += '<div class="param-label">📥 输入参数</div>';
+            html += '<div class="param-value">' + formatJSON(node.Input) + '</div>';
+            html += '</div>';
+            
+            // 返回值
+            html += '<div class="param-section">';
+            html += '<div class="param-label">📤 返回值</div>';
+            html += '<div class="param-value">' + formatJSON(node.Output) + '</div>';
+            html += '</div>';
+            
+            // 错误信息
+            if (node.Error) {
+                html += '<div class="param-section">';
+                html += '<div class="param-label">❌ 错误信息</div>';
+                html += '<div class="param-value" style="background: #f8d7da; color: #721c24;">' + escapeHtml(node.Error) + '</div>';
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            html += '</div>';
+            
+            // 切换按钮
+            html += '<button class="tree-node-toggle" onclick="toggleParams(\'' + nodeId + '\')">查看参数</button>';
+            if (hasChildren) {
+                html += '<button class="collapse-btn" onclick="toggleChildren(\'' + nodeId + '\')">展开 (' + node.Children.length + ')</button>';
+            }
+            
+            html += '</div>';
+            
+            // 子节点
+            if (hasChildren) {
+                html += '<div class="tree-node-children" id="children-' + nodeId + '">';
+                node.Children.forEach(child => {
+                    html += renderNode(child, level + 1);
+                });
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            return html;
+        }
+        
+        // 切换参数显示
+        function toggleParams(nodeId) {
+            const paramsEl = document.getElementById('params-' + nodeId);
+            const btn = event.target;
+            
+            if (paramsEl.classList.contains('show')) {
+                paramsEl.classList.remove('show');
+                btn.textContent = '查看参数';
+            } else {
+                paramsEl.classList.add('show');
+                btn.textContent = '隐藏参数';
+            }
+        }
+        
+        // 切换子节点显示
+        function toggleChildren(nodeId) {
+            const childrenEl = document.getElementById('children-' + nodeId);
+            const btn = event.target;
+            
+            if (childrenEl.classList.contains('show')) {
+                childrenEl.classList.remove('show');
+                btn.textContent = '展开 (' + childrenEl.querySelectorAll(':scope > .tree-node').length + ')';
+            } else {
+                childrenEl.classList.add('show');
+                btn.textContent = '折叠 (' + childrenEl.querySelectorAll(':scope > .tree-node').length + ')';
+            }
+        }
+        
+        // 展开全部
+        function expandAll() {
+            document.querySelectorAll('.tree-node-children').forEach(el => {
+                el.classList.add('show');
+            });
+            document.querySelectorAll('.collapse-btn').forEach(btn => {
+                const count = btn.closest('.tree-node').querySelector('.tree-node-children').querySelectorAll(':scope > .tree-node').length;
+                btn.textContent = '折叠 (' + count + ')';
+            });
+        }
+        
+        // 折叠全部
+        function collapseAll() {
+            document.querySelectorAll('.tree-node-children').forEach(el => {
+                el.classList.remove('show');
+            });
+            document.querySelectorAll('.collapse-btn').forEach(btn => {
+                const count = btn.closest('.tree-node').querySelector('.tree-node-children').querySelectorAll(':scope > .tree-node').length;
+                btn.textContent = '展开 (' + count + ')';
+            });
+        }
+        
+        // 显示所有参数
+        function showAllParams() {
+            document.querySelectorAll('.tree-node-params').forEach(el => {
+                el.classList.add('show');
+            });
+            document.querySelectorAll('.tree-node-toggle').forEach(btn => {
+                btn.textContent = '隐藏参数';
+            });
+        }
+        
+        // 隐藏所有参数
+        function hideAllParams() {
+            document.querySelectorAll('.tree-node-params').forEach(el => {
+                el.classList.remove('show');
+            });
+            document.querySelectorAll('.tree-node-toggle').forEach(btn => {
+                btn.textContent = '查看参数';
+            });
+        }
+        
+        // 格式化 JSON
+        function formatJSON(data) {
+            if (data === null || data === undefined) {
+                return '<span style="color: #c678dd;">null</span>';
+            }
+            try {
+                return escapeHtml(JSON.stringify(data, null, 2));
+            } catch (e) {
+                return escapeHtml(String(data));
+            }
+        }
+        
+        // 格式化时长
+        function formatDuration(ns) {
+            if (ns < 1000) {
+                return ns + 'ns';
+            } else if (ns < 1000000) {
+                return (ns / 1000).toFixed(2) + 'µs';
+            } else if (ns < 1000000000) {
+                return (ns / 1000000).toFixed(2) + 'ms';
+            } else {
+                return (ns / 1000000000).toFixed(2) + 's';
+            }
+        }
+        
+        // 获取状态图标
+        function getStatusIcon(status) {
+            switch (status) {
+                case 'success': return '✅';
+                case 'error': return '❌';
+                case 'running': return '🔄';
+                default: return '⏸️';
+            }
+        }
+        
+        // HTML 转义
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // 页面加载时渲染
+        window.onload = function() {
+            renderTree();
+        };
+    </script>
 </body>
 </html>
 `, 
@@ -428,10 +698,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
 		formatDuration(trace.Duration.Nanoseconds()),
 		trace.Status,
 		len(trace.Children),
-		formatParamHTML(trace.Input),
-		formatParamHTML(trace.Output),
-		formatErrorHTML(trace.Error),
-		formatCallTreeHTML(trace.Children),
+		string(traceJSON),
 	)
 	
 	c.Header("Content-Type", "text/html; charset=utf-8")
@@ -463,145 +730,4 @@ func formatDuration(ns int64) string {
 	} else {
 		return fmt.Sprintf("%.2fs", float64(ns)/1000000000)
 	}
-}
-
-// formatParamHTML 格式化参数为 HTML
-func formatParamHTML(data interface{}) string {
-	if data == nil {
-		return `<div class="param-empty">无数据</div>`
-	}
-	
-	// 尝试转换为 JSON
-	jsonBytes, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		// 如果无法转换为 JSON，使用字符串表示
-		return fmt.Sprintf(`<pre>%s</pre>`, html.EscapeString(fmt.Sprintf("%+v", data)))
-	}
-	
-	// 对 JSON 进行语法高亮
-	jsonStr := string(jsonBytes)
-	highlighted := highlightJSON(jsonStr)
-	
-	return fmt.Sprintf(`<pre>%s</pre>`, highlighted)
-}
-
-// highlightJSON 简单的 JSON 语法高亮
-func highlightJSON(jsonStr string) string {
-	// 转义 HTML
-	jsonStr = html.EscapeString(jsonStr)
-	
-	// 简单的语法高亮（可以进一步优化）
-	jsonStr = strings.ReplaceAll(jsonStr, `"`, `<span class="json-string">"</span>`)
-	
-	return jsonStr
-}
-
-// formatErrorHTML 格式化错误信息
-func formatErrorHTML(errMsg string) string {
-	if errMsg == "" {
-		return ""
-	}
-	
-	return fmt.Sprintf(`
-		<div class="param-container" style="margin-top: 15px; border-left-color: #dc3545;">
-			<div class="param-header" style="background: linear-gradient(135deg, #dc3545, #c82333);">
-				❌ 错误信息
-			</div>
-			<div class="param-content">
-				<pre style="background: #f8d7da; color: #721c24;">%s</pre>
-			</div>
-		</div>
-	`, html.EscapeString(errMsg))
-}
-
-// formatCallTreeHTML 格式化调用树
-func formatCallTreeHTML(children []*tracer.MethodTrace) string {
-	if len(children) == 0 {
-		return ""
-	}
-	
-	html := `
-		<div class="card card-full">
-			<div class="card-title">🌲 调用链路图</div>
-			<div class="call-tree">
-	`
-	
-	for _, child := range children {
-		html += formatTreeNodeHTML(child, 0)
-	}
-	
-	html += `
-			</div>
-		</div>
-	`
-	
-	return html
-}
-
-// formatTreeNodeHTML 格式化树节点
-func formatTreeNodeHTML(node *tracer.MethodTrace, level int) string {
-	statusClass := "status-" + node.Status
-	icon := getStatusIcon(node.Status)
-	
-	// 构建节点的详细信息
-	inputSummary := "无参数"
-	if node.Input != nil {
-		inputJSON, _ := json.Marshal(node.Input)
-		inputStr := string(inputJSON)
-		if len(inputStr) > 50 {
-			inputSummary = inputStr[:50] + "..."
-		} else {
-			inputSummary = inputStr
-		}
-	}
-	
-	outputSummary := "无返回值"
-	if node.Output != nil {
-		outputJSON, _ := json.Marshal(node.Output)
-		outputStr := string(outputJSON)
-		if len(outputStr) > 50 {
-			outputSummary = outputStr[:50] + "..."
-		} else {
-			outputSummary = outputStr
-		}
-	}
-	
-	nodeHTML := fmt.Sprintf(`
-		<div class="tree-node" style="margin-left: %dpx;">
-			<div class="tree-node-content" onclick="window.location.href='/trace/%s'">
-				<span class="tree-node-icon">%s</span>
-				<div class="tree-node-method">
-					<div>%s</div>
-					<div style="font-size: 12px; color: #666; margin-top: 5px;">
-						<span style="margin-right: 15px;">📥 %s</span>
-						<span>📤 %s</span>
-					</div>
-				</div>
-				<span class="tree-node-duration">%s</span>
-				<span class="status-badge %s" style="font-size: 11px;">%s</span>
-			</div>
-	`, 
-		level*30,
-		node.TraceID,
-		icon,
-		node.MethodName,
-		html.EscapeString(inputSummary),
-		html.EscapeString(outputSummary),
-		formatDuration(node.Duration.Nanoseconds()),
-		statusClass,
-		node.Status,
-	)
-	
-	// 递归处理子节点
-	if len(node.Children) > 0 {
-		nodeHTML += `<div class="tree-node-children">`
-		for _, child := range node.Children {
-			nodeHTML += formatTreeNodeHTML(child, level+1)
-		}
-		nodeHTML += `</div>`
-	}
-	
-	nodeHTML += `</div>`
-	
-	return nodeHTML
 }
