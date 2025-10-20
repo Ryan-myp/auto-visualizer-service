@@ -83,111 +83,24 @@ func (m *Manager) registerDefaultInterceptors() {
 		}
 	}
 
-	// 注册常见的AdMgmt方法
-	m.registerAdMgmtInterceptors()
+	// 不再预注册固定的方法列表
+	// 方法将在实际调用时动态注册
 }
 
-// registerAdMgmtInterceptors 注册AdMgmt相关拦截器
-func (m *Manager) registerAdMgmtInterceptors() {
-	adMgmtMethods := map[string]string{
-		"AppPublishOpsAdsRun":      "AdMgmt广告发布流程",
-		"getPublishTaskAndProcess": "任务解析处理流程",
-		"CreateCampaign":           "创建广告活动",
-		"CreateAdSet":              "创建广告组",
-		"CreateAd":                 "创建广告",
-		"CreateCreative":           "创建创意",
-		"PublishCampaign":          "发布广告活动",
-		"UpdateCampaignStatus":     "更新活动状态",
-		"GetCampaignMetrics":       "获取活动指标",
-		"OptimizeBudget":           "预算优化",
-		"ProcessCallback":          "处理回调",
-	}
-
-	for method, flowName := range adMgmtMethods {
-		if _, exists := m.interceptors[method]; !exists {
-			m.interceptors[method] = &Interceptor{
-				MethodName:  method,
-				FlowName:    flowName,
-				Description: fmt.Sprintf("自动拦截的业务流程: %s", flowName),
-				Steps:       m.generateDefaultSteps(method),
-			}
-		}
-	}
-}
-
-// generateDefaultSteps 生成默认步骤
+// generateDefaultSteps 生成默认步骤（简化版）
 func (m *Manager) generateDefaultSteps(method string) []config.FlowStep {
-	switch method {
-	case "AppPublishOpsAdsRun":
-		return []config.FlowStep{
-			{
-				ID:          "receive_task",
-				Name:        "接收发布任务",
-				Description: "接收RPC请求并验证参数",
-				Method:      "AppPublishOpsAdsRun",
-				Timeout:     5 * time.Second,
-				LogicFlow: []string{
-					"1. 接收RPC请求参数",
-					"2. 验证campaignTaskId有效性",
-					"3. 解析para JSON字符串",
-					"4. 校验必填字段完整性",
-					"5. 检查用户权限和配额",
-				},
+	return []config.FlowStep{
+		{
+			ID:          "execute",
+			Name:        "执行业务逻辑",
+			Description: fmt.Sprintf("执行 %s 方法", method),
+			Method:      method,
+			Timeout:     10 * time.Second,
+			LogicFlow: []string{
+				"1. 执行业务逻辑",
+				"2. 处理返回结果",
 			},
-			{
-				ID:          "parse_task",
-				Name:        "解析任务参数",
-				Description: "解析任务树中的具体节点",
-				Method:      "getPublishTaskAndProcess",
-				Timeout:     3 * time.Second,
-				LogicFlow: []string{
-					"1. 从数据库获取任务详情",
-					"2. 解析任务参数JSON",
-					"3. 确定任务处理层级",
-					"4. 检查前置依赖条件",
-				},
-			},
-			{
-				ID:          "call_api",
-				Name:        "调用外部API",
-				Description: "调用Facebook Marketing API",
-				Method:      "FacebookProxy.createCampaign",
-				Timeout:     30 * time.Second,
-				LogicFlow: []string{
-					"1. 构建API请求参数",
-					"2. 设置认证信息",
-					"3. 发送HTTP请求",
-					"4. 解析响应数据",
-				},
-			},
-			{
-				ID:          "save_db",
-				Name:        "保存到数据库",
-				Description: "将结果保存到本地数据库",
-				Method:      "CampaignRepository.save",
-				Timeout:     2 * time.Second,
-				LogicFlow: []string{
-					"1. 开启数据库事务",
-					"2. 插入campaigns表",
-					"3. 更新映射关系",
-					"4. 提交事务",
-				},
-			},
-		}
-	default:
-		return []config.FlowStep{
-			{
-				ID:          "execute",
-				Name:        "执行业务逻辑",
-				Description: fmt.Sprintf("执行 %s 方法", method),
-				Method:      method,
-				Timeout:     10 * time.Second,
-				LogicFlow: []string{
-					"1. 执行业务逻辑",
-					"2. 处理返回结果",
-				},
-			},
-		}
+		},
 	}
 }
 

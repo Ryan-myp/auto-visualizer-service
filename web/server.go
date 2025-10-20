@@ -7,11 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/Ryan-myp/auto-visualizer-service/config"
 	"github.com/Ryan-myp/auto-visualizer-service/interceptor"
 	"github.com/Ryan-myp/auto-visualizer-service/storage"
 	"github.com/Ryan-myp/auto-visualizer-service/tracer"
+	"github.com/gin-gonic/gin"
 )
 
 // Server Web服务器
@@ -75,7 +75,7 @@ func (s *Server) setupRoutes() {
 		api.GET("/stats", s.handleGetStats)
 		api.GET("/interceptors", s.handleGetInterceptors)
 		api.DELETE("/traces/cleanup", s.handleCleanupTraces)
-		
+
 		// 新增：方法追踪API
 		api.GET("/method-traces", s.handleGetMethodTraces)
 		api.GET("/method-traces/:id", s.handleGetMethodTraceDetail)
@@ -495,14 +495,54 @@ func (s *Server) handleGetStats(c *gin.Context) {
 	})
 }
 
-// handleGetInterceptors 获取拦截器列表
+// handleGetInterceptors 获取拦截器列表（动态从追踪数据中获取）
 func (s *Server) handleGetInterceptors(c *gin.Context) {
-	interceptors := s.interceptor.GetInterceptors()
+	// 从追踪器中获取实际被追踪的方法
+	t := tracer.GetTracer()
+	traces := t.GetAllTraces()
+	
+	// 统计每个方法的调用次数和状态
+	methodStats := make(map[string]map[string]interface{})
+	for _, trace := range traces {
+		if _, exists := methodStats[trace.MethodName]; !exists {
+			methodStats[trace.MethodName] = map[string]interface{}{
+				"name":          trace.MethodName,
+				"package":       trace.PackageName,
+				"call_count":    0,
+				"success_count": 0,
+				"error_count":   0,
+				"total_duration": int64(0),
+			}
+		}
+		
+		stats := methodStats[trace.MethodName]
+		stats["call_count"] = stats["call_count"].(int) + 1
+		
+		if trace.Status == "success" {
+			stats["success_count"] = stats["success_count"].(int) + 1
+		} else if trace.Status == "error" {
+			stats["error_count"] = stats["error_count"].(int) + 1
+		}
+		
+		stats["total_duration"] = stats["total_duration"].(int64) + trace.Duration.Milliseconds()
+	}
+	
+	// 转换为数组并计算平均耗时
+	result := make([]map[string]interface{}, 0, len(methodStats))
+	for _, stats := range methodStats {
+		callCount := stats["call_count"].(int)
+		if callCount > 0 {
+			avgDuration := stats["total_duration"].(int64) / int64(callCount)
+			stats["avg_duration_ms"] = avgDuration
+		}
+		delete(stats, "total_duration") // 移除临时字段
+		result = append(result, stats)
+	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":      true,
-		"interceptors": interceptors,
-		"total":        len(interceptors),
+		"success": true,
+		"methods": result,
+		"total":   len(result),
 	})
 }
 
@@ -601,18 +641,18 @@ func buildTraceTree(traces []*tracer.MethodTrace) []map[string]interface{} {
 
 	for _, trace := range traces {
 		node := map[string]interface{}{
-			"id":          trace.TraceID,
-			"method":      trace.MethodName,
-			"package":     trace.PackageName,
-			"status":      trace.Status,
-			"duration":    trace.Duration.String(),
-			"start_time":  trace.StartTime.Format(time.RFC3339),
-			"input":       trace.Input,
-			"output":      trace.Output,
-			"error":       trace.Error,
-			"goroutine":   trace.Goroutine,
-			"call_stack":  trace.CallStack,
-			"children":    buildTraceChildren(trace.Children),
+			"id":         trace.TraceID,
+			"method":     trace.MethodName,
+			"package":    trace.PackageName,
+			"status":     trace.Status,
+			"duration":   trace.Duration.String(),
+			"start_time": trace.StartTime.Format(time.RFC3339),
+			"input":      trace.Input,
+			"output":     trace.Output,
+			"error":      trace.Error,
+			"goroutine":  trace.Goroutine,
+			"call_stack": trace.CallStack,
+			"children":   buildTraceChildren(trace.Children),
 		}
 		result = append(result, node)
 	}
@@ -629,17 +669,17 @@ func buildTraceChildren(children []*tracer.MethodTrace) []map[string]interface{}
 	result := make([]map[string]interface{}, 0, len(children))
 	for _, child := range children {
 		node := map[string]interface{}{
-			"id":          child.TraceID,
-			"method":      child.MethodName,
-			"package":     child.PackageName,
-			"status":      child.Status,
-			"duration":    child.Duration.String(),
-			"start_time":  child.StartTime.Format(time.RFC3339),
-			"input":       child.Input,
-			"output":      child.Output,
-			"error":       child.Error,
-			"goroutine":   child.Goroutine,
-			"children":    buildTraceChildren(child.Children),
+			"id":         child.TraceID,
+			"method":     child.MethodName,
+			"package":    child.PackageName,
+			"status":     child.Status,
+			"duration":   child.Duration.String(),
+			"start_time": child.StartTime.Format(time.RFC3339),
+			"input":      child.Input,
+			"output":     child.Output,
+			"error":      child.Error,
+			"goroutine":  child.Goroutine,
+			"children":   buildTraceChildren(child.Children),
 		}
 		result = append(result, node)
 	}
