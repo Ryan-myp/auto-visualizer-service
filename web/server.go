@@ -11,6 +11,7 @@ import (
 	"github.com/Ryan-myp/auto-visualizer-service/config"
 	"github.com/Ryan-myp/auto-visualizer-service/interceptor"
 	"github.com/Ryan-myp/auto-visualizer-service/storage"
+	"github.com/Ryan-myp/auto-visualizer-service/tracer"
 )
 
 // Server Web服务器
@@ -70,6 +71,12 @@ func (s *Server) setupRoutes() {
 		api.GET("/stats", s.handleGetStats)
 		api.GET("/interceptors", s.handleGetInterceptors)
 		api.DELETE("/traces/cleanup", s.handleCleanupTraces)
+		
+		// 新增：方法追踪API
+		api.GET("/method-traces", s.handleGetMethodTraces)
+		api.GET("/method-traces/:id", s.handleGetMethodTraceDetail)
+		api.DELETE("/method-traces", s.handleClearMethodTraces)
+		api.GET("/method-traces/tree", s.handleGetMethodTraceTree)
 	}
 
 	// 健康检查
@@ -523,4 +530,115 @@ func (s *Server) handleHealth(c *gin.Context) {
 		"independent":  true,
 		"version":      "1.0.0",
 	})
+}
+
+// ============ 新增：方法追踪处理函数 ============
+
+// handleGetMethodTraces 获取所有方法追踪
+func (s *Server) handleGetMethodTraces(c *gin.Context) {
+	t := tracer.GetTracer()
+	traces := t.GetAllTraces()
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"total":   len(traces),
+		"traces":  traces,
+	})
+}
+
+// handleGetMethodTraceDetail 获取方法追踪详情
+func (s *Server) handleGetMethodTraceDetail(c *gin.Context) {
+	traceID := c.Param("id")
+	t := tracer.GetTracer()
+	trace := t.GetTrace(traceID)
+
+	if trace == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"success": false,
+			"error":   "追踪记录不存在",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"trace":   trace,
+	})
+}
+
+// handleClearMethodTraces 清除所有方法追踪
+func (s *Server) handleClearMethodTraces(c *gin.Context) {
+	t := tracer.GetTracer()
+	t.ClearTraces()
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "已清除所有追踪记录",
+	})
+}
+
+// handleGetMethodTraceTree 获取方法调用树
+func (s *Server) handleGetMethodTraceTree(c *gin.Context) {
+	t := tracer.GetTracer()
+	traces := t.GetAllTraces()
+
+	// 构建树形结构
+	tree := buildTraceTree(traces)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"tree":    tree,
+	})
+}
+
+// buildTraceTree 构建追踪树
+func buildTraceTree(traces []*tracer.MethodTrace) []map[string]interface{} {
+	result := make([]map[string]interface{}, 0, len(traces))
+
+	for _, trace := range traces {
+		node := map[string]interface{}{
+			"id":          trace.TraceID,
+			"method":      trace.MethodName,
+			"package":     trace.PackageName,
+			"status":      trace.Status,
+			"duration":    trace.Duration.String(),
+			"start_time":  trace.StartTime.Format(time.RFC3339),
+			"input":       trace.Input,
+			"output":      trace.Output,
+			"error":       trace.Error,
+			"goroutine":   trace.Goroutine,
+			"call_stack":  trace.CallStack,
+			"children":    buildTraceChildren(trace.Children),
+		}
+		result = append(result, node)
+	}
+
+	return result
+}
+
+// buildTraceChildren 构建子追踪
+func buildTraceChildren(children []*tracer.MethodTrace) []map[string]interface{} {
+	if len(children) == 0 {
+		return []map[string]interface{}{}
+	}
+
+	result := make([]map[string]interface{}, 0, len(children))
+	for _, child := range children {
+		node := map[string]interface{}{
+			"id":          child.TraceID,
+			"method":      child.MethodName,
+			"package":     child.PackageName,
+			"status":      child.Status,
+			"duration":    child.Duration.String(),
+			"start_time":  child.StartTime.Format(time.RFC3339),
+			"input":       child.Input,
+			"output":      child.Output,
+			"error":       child.Error,
+			"goroutine":   child.Goroutine,
+			"children":    buildTraceChildren(child.Children),
+		}
+		result = append(result, node)
+	}
+
+	return result
 }

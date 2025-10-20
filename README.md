@@ -1,15 +1,16 @@
 # Auto-Visualizer Service
 
-🔌 **非侵入式业务流程可视化插件**
+🔌 **非侵入式业务流程可视化插件 - 类似 pprof 的方法追踪工具**
 
 ## 🎯 功能特性
 
 - **🔌 非侵入式设计**: 业务代码零修改，只需引入包即可
+- **🔍 方法追踪**: 自动追踪方法调用链、入参、出参、执行时间
+- **📊 调用链可视化**: 树形展示方法调用关系和嵌套层级
 - **💾 SQLite持久化**: 执行记录自动保存到数据库
-- **📊 分页查询**: 支持大量数据的高效查询和筛选
 - **🎨 可视化界面**: 美观的Web界面展示执行逻辑
 - **📈 统计分析**: 自动计算性能指标和执行趋势
-- **🔍 方法拦截**: 自动拦截和记录业务方法调用
+- **⚡ 高性能**: 采样率可配置，支持高并发场景
 - **🎮 环境控制**: 通过环境变量灵活启用/禁用
 
 ## 🚀 快速开始
@@ -58,27 +59,120 @@ go run main.go
 
 ## 📖 使用示例
 
-### 基础使用
+### 方式1：最简单 - 只需导入
 
 ```go
 package main
 
 import (
-    _ "github.com/Ryan-myp/auto-visualizer-service" // 导入插件
+    _ "github.com/Ryan-myp/auto-visualizer-service" // 导入插件，自动启动
 )
 
-// 你的业务方法 - 会被自动拦截
-func ProcessOrder(orderID string, userID int64) error {
-    // 业务逻辑...
-    return nil
+func main() {
+    // 你的业务代码，无需任何修改
+    ProcessOrder("order_123", 888888)
+    
+    select {}
+}
+```
+
+### 方式2：手动追踪方法（推荐）
+
+```go
+package main
+
+import (
+    _ "github.com/Ryan-myp/auto-visualizer-service"
+    autovisualizer "github.com/Ryan-myp/auto-visualizer-service"
+)
+
+// 方式2.1：使用 Begin + defer（推荐，可记录入参出参）
+func ProcessOrder(orderID string, amount float64) (string, error) {
+    end := autovisualizer.Begin("ProcessOrder", orderID, amount)
+    
+    var result string
+    var err error
+    defer func() {
+        end(result, err)  // 自动记录返回值
+    }()
+    
+    // 业务逻辑
+    result = "success"
+    return result, nil
+}
+
+// 方式2.2：使用 Measure（只测量执行时间）
+func ValidateOrder(orderID string) bool {
+    defer autovisualizer.Measure("ValidateOrder")()
+    
+    // 业务逻辑
+    return true
+}
+
+// 方式2.3：使用 TraceMethod（简单追踪）
+func SaveOrder(orderID string) {
+    defer autovisualizer.TraceMethod("SaveOrder")()
+    
+    // 业务逻辑
 }
 
 func main() {
-    // 业务代码，插件自动工作
-    ProcessOrder("order_123", 888888)
+    // 直接调用，追踪会自动记录
+    ProcessOrder("ORD-001", 999.99)
     
-    // 服务继续运行...
     select {}
+}
+```
+
+### 方式3：装饰器模式
+
+```go
+package main
+
+import (
+    autovisualizer "github.com/Ryan-myp/auto-visualizer-service"
+)
+
+// 原始函数
+func calculateSum(a, b int) int {
+    return a + b
+}
+
+// 包装后的函数（带追踪）
+var tracedCalculateSum = autovisualizer.Trace("calculateSum", calculateSum).(func(int, int) int)
+
+func main() {
+    // 使用包装后的函数
+    result := tracedCalculateSum(10, 20)
+    println(result)
+}
+```
+
+### 方式4：嵌套调用追踪
+
+```go
+func ProcessUserBatch(names []string) error {
+    // 顶层方法追踪
+    end := autovisualizer.Begin("ProcessUserBatch", names)
+    defer end(nil)
+    
+    for _, name := range names {
+        // 嵌套调用，会自动形成调用链
+        CreateUser(name)
+        ValidateUser(name)
+    }
+    
+    return nil
+}
+
+func CreateUser(name string) {
+    defer autovisualizer.Measure("CreateUser")()
+    // 业务逻辑
+}
+
+func ValidateUser(name string) {
+    defer autovisualizer.Measure("ValidateUser")()
+    // 业务逻辑
 }
 ```
 
@@ -142,10 +236,26 @@ config.SetFlowSteps("MethodName", []config.FlowStep{
 
 ## 📊 API接口
 
-### 获取执行记录
+### 方法追踪 API
 
 ```bash
-# 分页查询
+# 获取所有方法追踪
+GET /api/method-traces
+
+# 获取方法追踪详情
+GET /api/method-traces/:id
+
+# 获取方法调用树（树形结构）
+GET /api/method-traces/tree
+
+# 清除所有追踪记录
+DELETE /api/method-traces
+```
+
+### 业务流程 API
+
+```bash
+# 分页查询执行记录
 GET /api/traces?page=1&page_size=10&status=completed
 
 # 查询特定方法

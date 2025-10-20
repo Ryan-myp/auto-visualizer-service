@@ -6,6 +6,7 @@ import (
 
 	"github.com/Ryan-myp/auto-visualizer-service/config"
 	"github.com/Ryan-myp/auto-visualizer-service/interceptor"
+	"github.com/Ryan-myp/auto-visualizer-service/tracer"
 	"github.com/Ryan-myp/auto-visualizer-service/web"
 )
 
@@ -21,6 +22,13 @@ func init() {
 
 	// 加载配置
 	cfg := config.LoadConfig()
+
+	// 初始化追踪器
+	tracer.InitTracer(
+		tracer.WithSampleRate(cfg.SampleRate),
+		tracer.WithMaxDepth(10),
+		tracer.WithCaptureStack(true),
+	)
 
 	// 创建可视化器实例
 	visualizer, err := NewAutoVisualizer(cfg)
@@ -40,6 +48,7 @@ func init() {
 	log.Printf("🎉 Auto-Visualizer插件已自动启动!")
 	log.Printf("🌐 访问地址: http://localhost:%d", cfg.WebPort)
 	log.Printf("💾 数据库: %s", cfg.DBPath)
+	log.Printf("🔍 方法追踪器已启用 (采样率: %.2f)", cfg.SampleRate)
 }
 
 // AutoVisualizer 自动可视化器
@@ -117,4 +126,74 @@ func RecordResult(traceID string, result interface{}, err error) {
 	if globalVisualizer != nil {
 		globalVisualizer.interceptor.RecordResult(traceID, result, err)
 	}
+}
+
+// ============ 新增：方法追踪API ============
+
+// Trace 追踪方法执行（装饰器模式）
+// 使用示例:
+//   var myFunc = autovisualizer.Trace("MyFunc", func(a int) string {
+//       return fmt.Sprintf("result: %d", a)
+//   }).(func(int) string)
+func Trace(methodName string, fn interface{}) interface{} {
+	return tracer.Wrap(methodName, fn)
+}
+
+// TraceMethod 追踪方法（defer模式）
+// 使用示例:
+//   func MyMethod() {
+//       defer autovisualizer.TraceMethod("MyMethod")()
+//       // 业务逻辑
+//   }
+func TraceMethod(methodName string) func() {
+	return tracer.TraceMethod(methodName)
+}
+
+// TraceWithArgs 追踪方法（带参数和返回值）
+// 使用示例:
+//   func MyMethod(a int) (string, error) {
+//       _, end := autovisualizer.TraceWithArgs("MyMethod", a)
+//       defer func() { end(result, err) }()
+//       // 业务逻辑
+//       return "result", nil
+//   }
+func TraceWithArgs(methodName string, args ...interface{}) (traceID string, endFunc func(results ...interface{})) {
+	return tracer.TraceMethodWithArgs(methodName, args...)
+}
+
+// Begin 开始追踪（简化版）
+// 使用示例:
+//   func MyMethod(a int) (string, error) {
+//       end := autovisualizer.Begin("MyMethod", a)
+//       defer end(result, err)
+//       // 业务逻辑
+//       return "result", nil
+//   }
+func Begin(methodName string, args ...interface{}) func(...interface{}) {
+	return tracer.Begin(methodName, args...)
+}
+
+// Measure 测量执行时间
+// 使用示例:
+//   func MyMethod() {
+//       defer autovisualizer.Measure("MyMethod")()
+//       // 业务逻辑
+//   }
+func Measure(methodName string) func() {
+	return tracer.Measure(methodName)
+}
+
+// GetTracer 获取追踪器实例
+func GetTracer() *tracer.Tracer {
+	return tracer.GetTracer()
+}
+
+// GetAllTraces 获取所有追踪记录
+func GetAllTraces() []*tracer.MethodTrace {
+	return tracer.GetTracer().GetAllTraces()
+}
+
+// ClearTraces 清除所有追踪记录
+func ClearTraces() {
+	tracer.GetTracer().ClearTraces()
 }
