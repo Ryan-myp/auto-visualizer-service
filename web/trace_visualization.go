@@ -17,7 +17,6 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
 	trace := t.GetTrace(traceID)
 
 	if trace == nil {
-		c.HTML(http.StatusNotFound, "", gin.H{})
 		c.String(http.StatusNotFound, "追踪记录不存在")
 		return
 	}
@@ -386,7 +385,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
         
         <!-- 调用树 -->
         <div class="tree-container">
-            <div class="tree-title">🌲 完整调用链路（列表视图）</div>
+            <div class="tree-title">🌲 完整调用链路（列表视图 - 新版本 v2.0）</div>
             <div id="callTree"></div>
         </div>
     </div>
