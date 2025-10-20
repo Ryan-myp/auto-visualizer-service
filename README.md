@@ -251,6 +251,24 @@ GET /api/method-traces/tree
 
 # 清除所有追踪记录
 DELETE /api/method-traces
+
+# 获取被追踪的方法列表（动态生成）
+GET /api/interceptors
+# 返回示例:
+# {
+#   "success": true,
+#   "methods": [
+#     {
+#       "name": "ProcessOrder",
+#       "package": "main.ProcessOrder",
+#       "call_count": 10,
+#       "success_count": 9,
+#       "error_count": 1,
+#       "avg_duration_ms": 150
+#     }
+#   ],
+#   "total": 1
+# }
 ```
 
 ### 业务流程 API
