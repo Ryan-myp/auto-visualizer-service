@@ -1,8 +1,11 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
+	"strings"
 
 	"github.com/Ryan-myp/auto-visualizer-service/tracer"
 	"github.com/gin-gonic/gin"
@@ -21,7 +24,7 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
 		return
 	}
 	
-	html := fmt.Sprintf(`
+	htmlContent := fmt.Sprintf(`
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -31,62 +34,92 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
             min-height: 100vh;
             padding: 20px;
+            color: #333;
         }
-        .container { max-width: 1400px; margin: 0 auto; }
+        .container { max-width: 1600px; margin: 0 auto; }
         
-        /* 头部 */
-        .header {
+        /* 顶部导航 */
+        .top-nav {
+            background: rgba(255,255,255,0.95);
+            padding: 15px 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .btn-back {
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        .btn-back:hover { transform: translateY(-2px); }
+        
+        /* 头部卡片 */
+        .header-card {
             background: white;
             padding: 30px;
             border-radius: 15px;
             margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
         }
-        .header h1 { 
-            font-size: 28px;
-            color: #333;
-            margin-bottom: 10px;
-        }
-        .header .meta {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            margin-top: 15px;
-        }
-        .meta-item {
+        .method-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            font-size: 14px;
+            gap: 15px;
         }
-        .meta-item .label { color: #666; }
-        .meta-item .value { 
-            font-weight: 600;
-            color: #333;
-        }
-        
-        /* 状态标签 */
         .status-badge {
-            display: inline-block;
-            padding: 6px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 14px;
             font-weight: 600;
-            text-transform: uppercase;
         }
         .status-success { background: #d4edda; color: #155724; }
         .status-error { background: #f8d7da; color: #721c24; }
-        .status-running { background: #fff3cd; color: #856404; }
         
-        /* 主内容区 */
-        .content {
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .meta-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .meta-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+        .meta-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        /* 主内容区域 */
+        .content-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
@@ -99,175 +132,187 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
             border-radius: 15px;
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
-        .card h2 {
+        .card-title {
             font-size: 20px;
+            font-weight: 700;
             color: #333;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid #667eea;
+            border-bottom: 3px solid #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        /* 参数展示 */
+        .param-container {
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #e9ecef;
+        }
+        .param-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .param-content {
+            padding: 20px;
+        }
+        .param-content pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.6;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+        }
+        .param-empty {
+            color: #999;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        /* JSON 语法高亮 */
+        .json-key { color: #e06c75; }
+        .json-string { color: #98c379; }
+        .json-number { color: #d19a66; }
+        .json-boolean { color: #56b6c2; }
+        .json-null { color: #c678dd; }
+        
+        /* 调用树 */
+        .call-tree {
+            margin-top: 10px;
+        }
+        .tree-node {
+            margin-bottom: 10px;
+            position: relative;
+        }
+        .tree-node-content {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .tree-node-content:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        .tree-node-icon {
+            font-size: 20px;
+            margin-right: 12px;
+        }
+        .tree-node-method {
+            flex: 1;
+            font-weight: 600;
+            color: #333;
+            font-size: 15px;
+        }
+        .tree-node-duration {
+            padding: 4px 12px;
+            background: white;
+            border-radius: 15px;
+            font-size: 13px;
+            color: #667eea;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+        .tree-node-children {
+            margin-left: 30px;
+            margin-top: 10px;
+            padding-left: 20px;
+            border-left: 2px dashed #ddd;
         }
         
         /* 时间线 */
         .timeline {
             position: relative;
-            padding-left: 30px;
-        }
-        .timeline::before {
-            content: '';
-            position: absolute;
-            left: 10px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background: linear-gradient(to bottom, #667eea, #764ba2);
+            padding: 20px 0;
         }
         .timeline-item {
-            position: relative;
+            display: flex;
+            gap: 20px;
             margin-bottom: 20px;
-            padding-left: 20px;
+            position: relative;
         }
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -24px;
-            top: 5px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%%;
+        .timeline-time {
+            min-width: 150px;
+            font-weight: 600;
+            color: #667eea;
+            text-align: right;
+        }
+        .timeline-marker {
+            width: 16px;
+            height: 16px;
             background: #667eea;
-            border: 3px solid white;
+            border-radius: 50%%;
+            border: 4px solid white;
             box-shadow: 0 0 0 2px #667eea;
+            position: relative;
+            z-index: 1;
         }
-        .timeline-item .time {
-            font-size: 12px;
-            color: #999;
-            margin-bottom: 5px;
+        .timeline-content {
+            flex: 1;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
         }
-        .timeline-item .event {
+        .timeline-title {
             font-weight: 600;
             color: #333;
             margin-bottom: 5px;
         }
-        .timeline-item .detail {
-            font-size: 14px;
+        .timeline-desc {
             color: #666;
-        }
-        
-        /* 参数展示 */
-        .param-box {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            border-left: 4px solid #667eea;
-        }
-        .param-box .title {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 10px;
             font-size: 14px;
-        }
-        .param-box pre {
-            background: #2d2d2d;
-            color: #f8f8f2;
-            padding: 15px;
-            border-radius: 5px;
-            overflow-x: auto;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-        
-        /* 调用栈 */
-        .call-stack {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-        }
-        .stack-item {
-            padding: 10px;
-            margin-bottom: 8px;
-            background: white;
-            border-radius: 5px;
-            font-size: 13px;
-            font-family: 'Courier New', monospace;
-            border-left: 3px solid #667eea;
         }
         
         /* 性能指标 */
-        .metrics {
+        .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(3, 1fr);
             gap: 15px;
         }
         .metric-card {
             background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
             color: white;
-            padding: 20px;
-            border-radius: 10px;
+            padding: 25px;
+            border-radius: 12px;
             text-align: center;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
         }
-        .metric-card .value {
-            font-size: 32px;
-            font-weight: bold;
-            margin-bottom: 5px;
+        .metric-value {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
         }
-        .metric-card .label {
+        .metric-label {
             font-size: 14px;
             opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
         
-        /* 调用树 */
-        .call-tree {
-            margin-top: 20px;
-        }
-        .tree-node {
-            margin-left: 20px;
-            padding: 10px;
-            border-left: 2px solid #ddd;
-            margin-bottom: 10px;
-        }
-        .tree-node .node-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .tree-node .node-header:hover {
-            background: #e9ecef;
-        }
-        .tree-node .node-method {
-            font-weight: 600;
-            color: #667eea;
-        }
-        .tree-node .node-duration {
-            color: #666;
-            font-size: 13px;
-        }
-        .tree-node .node-status {
-            margin-left: auto;
-        }
-        
-        /* 按钮 */
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background: linear-gradient(45deg, #667eea, #764ba2);
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: transform 0.2s;
-        }
-        .btn:hover {
-            transform: translateY(-2px);
+        /* 全宽卡片 */
+        .card-full {
+            grid-column: 1 / -1;
         }
         
         /* 响应式 */
-        @media (max-width: 768px) {
-            .content {
+        @media (max-width: 1024px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+            .metrics-grid {
                 grid-template-columns: 1fr;
             }
         }
@@ -275,193 +320,214 @@ func (s *Server) handleTraceVisualization(c *gin.Context) {
 </head>
 <body>
     <div class="container">
-        <!-- 头部 -->
-        <div class="header">
-            <a href="/" class="btn">← 返回首页</a>
-            <h1>🔍 追踪详情</h1>
-            <div class="meta">
+        <!-- 顶部导航 -->
+        <div class="top-nav">
+            <a href="/" class="btn-back">← 返回首页</a>
+            <div style="color: #667eea; font-weight: 600;">追踪ID: %s</div>
+        </div>
+        
+        <!-- 头部信息 -->
+        <div class="header-card">
+            <div class="method-title">
+                <span>🔍</span>
+                <span>%s</span>
+                <span class="status-badge status-%s">
+                    %s %s
+                </span>
+            </div>
+            
+            <div class="meta-grid">
                 <div class="meta-item">
-                    <span class="label">方法:</span>
-                    <span class="value">%s</span>
+                    <div class="meta-label">包路径</div>
+                    <div class="meta-value" style="font-size: 14px;">%s</div>
                 </div>
                 <div class="meta-item">
-                    <span class="label">包:</span>
-                    <span class="value">%s</span>
+                    <div class="meta-label">执行耗时</div>
+                    <div class="meta-value">%s</div>
                 </div>
                 <div class="meta-item">
-                    <span class="label">状态:</span>
-                    <span class="status-badge status-%s">%s</span>
+                    <div class="meta-label">Goroutine</div>
+                    <div class="meta-value">#%d</div>
                 </div>
                 <div class="meta-item">
-                    <span class="label">耗时:</span>
-                    <span class="value">%s</span>
+                    <div class="meta-label">开始时间</div>
+                    <div class="meta-value" style="font-size: 14px;">%s</div>
                 </div>
                 <div class="meta-item">
-                    <span class="label">Goroutine:</span>
-                    <span class="value">#%d</span>
+                    <div class="meta-label">结束时间</div>
+                    <div class="meta-value" style="font-size: 14px;">%s</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">子调用数</div>
+                    <div class="meta-value">%d</div>
                 </div>
             </div>
         </div>
         
-        <!-- 主内容 -->
-        <div class="content">
-            <!-- 左侧：时间线 -->
-            <div class="card">
-                <h2>📅 执行时间线</h2>
-                <div class="timeline">
-                    <div class="timeline-item">
-                        <div class="time">开始时间</div>
-                        <div class="event">方法调用开始</div>
-                        <div class="detail">%s</div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="time">结束时间</div>
-                        <div class="event">方法执行完成</div>
-                        <div class="detail">%s</div>
-                    </div>
-                    <div class="timeline-item">
-                        <div class="time">总耗时</div>
-                        <div class="event">%s</div>
-                        <div class="detail">状态: %s</div>
-                    </div>
+        <!-- 性能指标 -->
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="card-title">📊 性能指标</div>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">%s</div>
+                    <div class="metric-label">执行时间</div>
                 </div>
-            </div>
-            
-            <!-- 右侧：性能指标 -->
-            <div class="card">
-                <h2>📊 性能指标</h2>
-                <div class="metrics">
-                    <div class="metric-card">
-                        <div class="value">%s</div>
-                        <div class="label">执行时间</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="value">%s</div>
-                        <div class="label">状态</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="value">%d</div>
-                        <div class="label">子调用数</div>
-                    </div>
+                <div class="metric-card">
+                    <div class="metric-value">%s</div>
+                    <div class="metric-label">状态</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">%d</div>
+                    <div class="metric-label">子调用</div>
                 </div>
             </div>
         </div>
         
         <!-- 参数和返回值 -->
-        <div class="content">
+        <div class="content-grid">
             <div class="card">
-                <h2>📥 输入参数</h2>
-                <div class="param-box">
-                    <div class="title">参数列表</div>
-                    <pre>%s</pre>
+                <div class="card-title">📥 输入参数</div>
+                <div class="param-container">
+                    <div class="param-header">Input Parameters</div>
+                    <div class="param-content">
+                        %s
+                    </div>
                 </div>
             </div>
             
             <div class="card">
-                <h2>📤 返回值</h2>
-                <div class="param-box">
-                    <div class="title">返回结果</div>
-                    <pre>%s</pre>
+                <div class="card-title">📤 返回值</div>
+                <div class="param-container">
+                    <div class="param-header">Output Values</div>
+                    <div class="param-content">
+                        %s
+                    </div>
                 </div>
                 %s
             </div>
         </div>
         
-        <!-- 调用栈 -->
-        <div class="card">
-            <h2>📚 调用栈</h2>
-            <div class="call-stack">
-                %s
-            </div>
-        </div>
-        
-        <!-- 子调用 -->
+        <!-- 调用树 -->
         %s
     </div>
 </body>
 </html>
 `, 
 		trace.MethodName,
+		traceID,
 		trace.MethodName,
+		trace.Status,
+		getStatusIcon(trace.Status),
+		trace.Status,
 		trace.PackageName,
-		trace.Status,
-		trace.Status,
-		trace.Duration.String(),
+		formatDuration(trace.Duration.Nanoseconds()),
 		trace.Goroutine,
 		trace.StartTime.Format("2006-01-02 15:04:05.000"),
 		trace.EndTime.Format("2006-01-02 15:04:05.000"),
-		trace.Duration.String(),
-		trace.Status,
-		trace.Duration.String(),
+		len(trace.Children),
+		formatDuration(trace.Duration.Nanoseconds()),
 		trace.Status,
 		len(trace.Children),
-		formatJSON(trace.Input),
-		formatJSON(trace.Output),
-		formatError(trace.Error),
-		formatCallStack(trace.CallStack),
-		formatChildren(trace.Children),
+		formatParamHTML(trace.Input),
+		formatParamHTML(trace.Output),
+		formatErrorHTML(trace.Error),
+		formatCallTreeHTML(trace.Children),
 	)
 	
 	c.Header("Content-Type", "text/html; charset=utf-8")
-	c.String(http.StatusOK, html)
+	c.String(http.StatusOK, htmlContent)
 }
 
-// formatJSON 格式化 JSON
-func formatJSON(data interface{}) string {
+// getStatusIcon 获取状态图标
+func getStatusIcon(status string) string {
+	switch status {
+	case "success":
+		return "✅"
+	case "error":
+		return "❌"
+	case "running":
+		return "🔄"
+	default:
+		return "⏸️"
+	}
+}
+
+// formatDuration 格式化时长
+func formatDuration(ns int64) string {
+	if ns < 1000 {
+		return fmt.Sprintf("%dns", ns)
+	} else if ns < 1000000 {
+		return fmt.Sprintf("%.2fµs", float64(ns)/1000)
+	} else if ns < 1000000000 {
+		return fmt.Sprintf("%.2fms", float64(ns)/1000000)
+	} else {
+		return fmt.Sprintf("%.2fs", float64(ns)/1000000000)
+	}
+}
+
+// formatParamHTML 格式化参数为 HTML
+func formatParamHTML(data interface{}) string {
 	if data == nil {
-		return "null"
+		return `<div class="param-empty">无数据</div>`
 	}
 	
-	// 简单格式化
-	return fmt.Sprintf("%+v", data)
+	// 尝试转换为 JSON
+	jsonBytes, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		// 如果无法转换为 JSON，使用字符串表示
+		return fmt.Sprintf(`<pre>%s</pre>`, html.EscapeString(fmt.Sprintf("%+v", data)))
+	}
+	
+	// 对 JSON 进行语法高亮
+	jsonStr := string(jsonBytes)
+	highlighted := highlightJSON(jsonStr)
+	
+	return fmt.Sprintf(`<pre>%s</pre>`, highlighted)
 }
 
-// formatError 格式化错误信息
-func formatError(err string) string {
-	if err == "" {
+// highlightJSON 简单的 JSON 语法高亮
+func highlightJSON(jsonStr string) string {
+	// 转义 HTML
+	jsonStr = html.EscapeString(jsonStr)
+	
+	// 简单的语法高亮（可以进一步优化）
+	jsonStr = strings.ReplaceAll(jsonStr, `"`, `<span class="json-string">"</span>`)
+	
+	return jsonStr
+}
+
+// formatErrorHTML 格式化错误信息
+func formatErrorHTML(errMsg string) string {
+	if errMsg == "" {
 		return ""
 	}
 	
 	return fmt.Sprintf(`
-		<div class="param-box" style="border-left-color: #dc3545;">
-			<div class="title" style="color: #dc3545;">❌ 错误信息</div>
-			<pre style="background: #f8d7da; color: #721c24;">%s</pre>
-		</div>
-	`, err)
-}
-
-// formatCallStack 格式化调用栈
-func formatCallStack(stack []string) string {
-	if len(stack) == 0 {
-		return "<p style='color: #999;'>无调用栈信息</p>"
-	}
-	
-	html := ""
-	for i, item := range stack {
-		html += fmt.Sprintf(`
-			<div class="stack-item">
-				<strong>#%d</strong> %s
+		<div class="param-container" style="margin-top: 15px; border-left-color: #dc3545;">
+			<div class="param-header" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+				❌ 错误信息
 			</div>
-		`, i+1, item)
-	}
-	
-	return html
+			<div class="param-content">
+				<pre style="background: #f8d7da; color: #721c24;">%s</pre>
+			</div>
+		</div>
+	`, html.EscapeString(errMsg))
 }
 
-// formatChildren 格式化子调用
-func formatChildren(children []*tracer.MethodTrace) string {
+// formatCallTreeHTML 格式化调用树
+func formatCallTreeHTML(children []*tracer.MethodTrace) string {
 	if len(children) == 0 {
 		return ""
 	}
 	
 	html := `
-		<div class="card">
-			<h2>🌲 子调用链</h2>
+		<div class="card card-full">
+			<div class="card-title">🌲 调用链路图</div>
 			<div class="call-tree">
 	`
 	
 	for _, child := range children {
-		html += formatTreeNode(child, 0)
+		html += formatTreeNodeHTML(child, 0)
 	}
 	
 	html += `
@@ -472,30 +538,70 @@ func formatChildren(children []*tracer.MethodTrace) string {
 	return html
 }
 
-// formatTreeNode 格式化树节点
-func formatTreeNode(node *tracer.MethodTrace, level int) string {
+// formatTreeNodeHTML 格式化树节点
+func formatTreeNodeHTML(node *tracer.MethodTrace, level int) string {
 	statusClass := "status-" + node.Status
+	icon := getStatusIcon(node.Status)
 	
-	html := fmt.Sprintf(`
-		<div class="tree-node" style="margin-left: %dpx;">
-			<div class="node-header">
-				<span class="node-method">%s</span>
-				<span class="node-duration">%s</span>
-				<span class="node-status">
-					<span class="status-badge %s">%s</span>
-				</span>
-			</div>
-	`, level*20, node.MethodName, node.Duration.String(), statusClass, node.Status)
-	
-	// 递归处理子节点
-	if len(node.Children) > 0 {
-		for _, child := range node.Children {
-			html += formatTreeNode(child, level+1)
+	// 构建节点的详细信息
+	inputSummary := "无参数"
+	if node.Input != nil {
+		inputJSON, _ := json.Marshal(node.Input)
+		inputStr := string(inputJSON)
+		if len(inputStr) > 50 {
+			inputSummary = inputStr[:50] + "..."
+		} else {
+			inputSummary = inputStr
 		}
 	}
 	
-	html += `</div>`
+	outputSummary := "无返回值"
+	if node.Output != nil {
+		outputJSON, _ := json.Marshal(node.Output)
+		outputStr := string(outputJSON)
+		if len(outputStr) > 50 {
+			outputSummary = outputStr[:50] + "..."
+		} else {
+			outputSummary = outputStr
+		}
+	}
 	
-	return html
+	nodeHTML := fmt.Sprintf(`
+		<div class="tree-node" style="margin-left: %dpx;">
+			<div class="tree-node-content" onclick="window.location.href='/trace/%s'">
+				<span class="tree-node-icon">%s</span>
+				<div class="tree-node-method">
+					<div>%s</div>
+					<div style="font-size: 12px; color: #666; margin-top: 5px;">
+						<span style="margin-right: 15px;">📥 %s</span>
+						<span>📤 %s</span>
+					</div>
+				</div>
+				<span class="tree-node-duration">%s</span>
+				<span class="status-badge %s" style="font-size: 11px;">%s</span>
+			</div>
+	`, 
+		level*30,
+		node.TraceID,
+		icon,
+		node.MethodName,
+		html.EscapeString(inputSummary),
+		html.EscapeString(outputSummary),
+		formatDuration(node.Duration.Nanoseconds()),
+		statusClass,
+		node.Status,
+	)
+	
+	// 递归处理子节点
+	if len(node.Children) > 0 {
+		nodeHTML += `<div class="tree-node-children">`
+		for _, child := range node.Children {
+			nodeHTML += formatTreeNodeHTML(child, level+1)
+		}
+		nodeHTML += `</div>`
+	}
+	
+	nodeHTML += `</div>`
+	
+	return nodeHTML
 }
-

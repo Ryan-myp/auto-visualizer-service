@@ -300,21 +300,21 @@ go run main.go
                 const response = await fetch('/api/interceptors');
                 const result = await response.json();
                 
-                if (result.success) {
+                if (result.success && result.methods) {
                     const methodFilter = document.getElementById('methodFilter');
                     methodFilter.innerHTML = '<option value="">全部方法</option>';
                     
-                    Object.keys(result.interceptors).forEach(method => {
+                    result.methods.forEach(methodInfo => {
                         const option = document.createElement('option');
-                        option.value = method;
-                        option.textContent = method;
+                        option.value = methodInfo.name;
+                        option.textContent = methodInfo.name + ' (' + methodInfo.call_count + '次)';
                         methodFilter.appendChild(option);
                     });
                     
-                    alert('✅ 已加载 ' + Object.keys(result.interceptors).length + ' 个拦截器');
+                    alert('✅ 已加载 ' + result.methods.length + ' 个追踪方法');
                 }
             } catch (error) {
-                alert('❌ 加载拦截器失败: ' + error.message);
+                alert('❌ 加载方法列表失败: ' + error.message);
             }
         }
         
