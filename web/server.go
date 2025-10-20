@@ -48,11 +48,15 @@ func (s *Server) Start() error {
 	addr := fmt.Sprintf(":%d", s.config.WebPort)
 
 	go func() {
-		log.Printf("🌐 Web服务器启动: http://localhost:%d", s.config.WebPort)
+		log.Printf("🌐 Web服务器启动中: http://localhost:%d", s.config.WebPort)
 		if err := s.engine.Run(addr); err != nil && err != http.ErrServerClosed {
 			log.Printf("❌ Web服务器启动失败: %v", err)
 		}
 	}()
+
+	// 等待服务器启动（简单的延迟）
+	time.Sleep(100 * time.Millisecond)
+	log.Printf("✅ Web服务器已启动: http://localhost:%d", s.config.WebPort)
 
 	return nil
 }
